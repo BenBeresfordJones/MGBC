@@ -86,12 +86,9 @@ __Notes:__
       * metagenome sample files e.g.
       * `SRR6051702.fastq` # single read
       * `SRR11404551_1.fastq` `SRR11404551_2.fastq` # paired end
-    * SAMPLE_IDs.txt: file listing the names of the metagenome samples in the `Metagenomes/` directory with out a suffix or paired end index.
-     e.g.  
-          ```
-          SRR6051702
-          SRR11404551 
-          ```
+    * SAMPLE_IDs.txt: file listing the names of the metagenome samples in the `Metagenomes/` directory with out a suffix or paired end index. 
+    For example: `SRR6051702`, `SRR11404551`
+
 - the pipeline runs: QC - ASSEMBLY - BINNING - REFINE - REASSEMBLY
 - output MAGs will be found in the REFINE or REASSEMBLY directory (if run)
 - reassembling bins is a computationally expensive and resource intensive process, potentially generating hundreds of thousands of temporary files. It is therefore recommended to use the `-e REFINE` option if running on many samples.
@@ -203,6 +200,7 @@ Input:
   * "s__Lactobacillus johnsonii" will get all genomes for this species
   * "f__Muribaculaceae" will get any genome that has been classified as a member of the Muribaculaceae family, including those assigned to genus or species taxonomic ranks  
   * "Muribaculaceae" (no rank tag) will get genomes that have been assigned a terminal rank of Muribaculaceae at the family level i.e. no genus- or species- level assignment  
+
 `-t` number of threads with which to run analyses  
 `-q` queue to submit jobs to [default: normal]    
 `-H` Specifiy a host - either `HUMAN` or `MOUSE`  
