@@ -18,10 +18,11 @@ The below resources are not found on GitHub, but are freely available elsewhere 
 
 * [Clustered protein catalogues](https://doi.org/10.5281/zenodo.4300919) for gene-level analyses.
 
-* MMGC genomes! Our non-redundant and near-complete mouse MAGs, as well as our isolate genomes, are now accessible via this [FTP URL](http://ftp.ebi.ac.uk/pub/databases/metagenomics/genome_sets/mmgc/):  
+* MMGC genomes! Our non-redundant and near-complete mouse MAGs, as well as our isolate genomes, are now accessible via this FTP URL:  
 <p align="center">
-                 http://ftp.ebi.ac.uk/pub/databases/metagenomics/genome_sets/mmgc/
+http://ftp.ebi.ac.uk/pub/databases/metagenomics/genome_sets/mmgc/  
 </p>
+
 
 Check out the Supplementary Tables in this repository for more information on our genomes.
 
