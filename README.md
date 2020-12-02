@@ -18,13 +18,13 @@ The below resources are not found on GitHub, but are freely available elsewhere 
 
 * [Clustered protein catalogues](https://doi.org/10.5281/zenodo.4300919) for gene-level analyses.
 
-* MMGC genomes! Our non-redundant and near-complete mouse MAGs, as well as our isolate genomes, are now accessible via this FTP URL:  
+* MMGC genomes! Our non-redundant and near-complete mouse MAGs, as well as our MCC isolate genomes, are now accessible via this FTP URL:  
 <p align="center">
 http://ftp.ebi.ac.uk/pub/databases/metagenomics/genome_sets/mmgc/  
 </p>
 
 
-Check out the Supplementary Tables in this repository for more information on our genomes.
+Check out the Supplementary Tables in the `supp` directory of this repository for more information on our genomes.
 
 
 
@@ -179,3 +179,55 @@ __Notes:__
 * `CLUSTER_STATS.sh`: run in the `CLUS_X` directory to generate human vs mouse statistics for comparing cluster membership. Output is written to `CLUS_x/tmp/cluster_stats.out`.
 
 
+### `3-build-species-pangenomes/`
+
+This directory features the pangenome building and analysis pipelines. Two separate pipelines are available for building pangenomes, depending on whether you are working with a species-level assignment (i.e. a known species) or a supra-species assignment (i.e. a previously uncharacterised species). The remaining files facilitate analysis of these pangenomes.
+
+#### `get.species_pangenome_v2.sh`
+Build a host-specific pangenome for a __known__ species. 
+
+__Requirements:__
+* eggNOG-mapper v2.0.1
+* InterProScan v5.39-77.0-W01
+* bsub.py v0.42.1
+
+This pipeline was coded for running within LSF cluster environments.
+
+__Usage:__
+```
+get.species_pangenome_v2.sh -i <"TAXON"> -t <THREADS> -H <HOST> -CEI
+``` 
+Arguments:  
+Input:
+`-i` Taxonomical level to compare in quotation marks e.g.  
+  "s__Lactobacillus johnsonii" will get all genomes for this species
+  "f__Muribaculaceae" will get any genome that has been classified as a member of the Muribaculaceae family, including those assigned to genus or species taxonomic ranks  
+  "Muribaculaceae" (no rank tag) will get genomes that have been assigned a terminal rank of Muribaculaceae at the family level i.e. no genus- or species- level assignment  
+`-t` number of threads with which to run analyses  
+`-q` queue to submit jobs to [default: normal]    
+`-H` Specifiy a host - either `HUMAN` or `MOUSE`
+
+Output - pick one of the following options: [deafult: `-p`]
+`-o` specify the output directory in which to generate the results
+`-p` supply path to directory in which to build output directory that is the same name as the taxonomical level supplied [default: ./<i>]
+
+Action:
+`-C` get gene clusters that are unique and shared between each host.
+`-l` sequence identity threshold of clusters (use with `-C`). Can be one of 50, 80, 90 or 100. [default: 90]
+`-E` run eggNOG v2 on host-specific and shared clusters.
+`-I` run InterProScan on pangenome.
+
+
+__Notes:__
+- need to update the paths to the required data:
+  * [protein cluster databases](https://doi.org/10.5281/zenodo.4300919)
+  * UHGP 100% sequence identityt rep membership file
+      * `data/`
+  * taxonomy files (requires the output from `get_lowest_taxonomy_v1.0.R`)
+      * `data/`
+
+
+
+
+#### Other scripts in this directory:
+* `CLUSTER_STATS.sh`: run in the `CLUS_X` directory to generate human vs mouse statistics for comparing cluster membership. Output is written to `CLUS_x/tmp/cluster_stats.out`.
