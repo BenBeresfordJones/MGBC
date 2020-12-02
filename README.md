@@ -197,9 +197,9 @@ get.species_pangenome_v2.sh -i <"TAXON"> -t <THREADS> -H <HOST> -CEI
 Arguments:  
 Input:  
 `-i` Taxonomical level to compare in quotation marks e.g.  
-  * "s__Lactobacillus johnsonii" will get all genomes for this species
-  * "f__Muribaculaceae" will get any genome that has been classified as a member of the Muribaculaceae family, including those assigned to genus or species taxonomic ranks  
-  * "Muribaculaceae" (no rank tag) will get genomes that have been assigned a terminal rank of Muribaculaceae at the family level i.e. no genus- or species- level assignment  
+  * `-i "s__Lactobacillus johnsonii"` will get all genomes for this species
+  * `-i "f__Muribaculaceae"` will get any genome that has been classified as a member of the Muribaculaceae family, including those assigned at genus or species taxonomic ranks  
+  * `-i "Muribaculaceae"` (no rank tag) will get genomes that have been assigned a terminal rank of Muribaculaceae at the family level i.e. no genus- or species- level assignment  
 
 `-t` number of threads with which to run analyses  
 `-q` queue to submit jobs to [default: normal]    
