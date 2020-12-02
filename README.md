@@ -20,7 +20,7 @@ The below resources are not found on GitHub, but are freely available elsewhere 
 
 * MMGC genomes! Our non-redundant and near-complete mouse MAGs, as well as our MCC isolate genomes, are now accessible via this FTP URL:  
 <p align="center">
-http://ftp.ebi.ac.uk/pub/databases/metagenomics/genome_sets/mmgc/  
+http://ftp.ebi.ac.uk/pub/databases/metagenomics/genome_sets/mmgc/     
 </p>
 
 
