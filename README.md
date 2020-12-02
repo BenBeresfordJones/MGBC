@@ -127,7 +127,7 @@ __Notes:__
 
 #### Other scripts in this directory:
 * `GTDBTK_CLASSIFY_EFFICIENT.sh`: the same as GTDB-Tk's `classify_wf` except with a smaller temporary file footprint.
-* `get_lowest_taxonomy_v1.0.R`: takes GTDB-Tk output and summarises the lowest taxonomy obtained - output is used in other pipelines.
+* `get_lowest_taxonomy_v1.0.R`: takes GTDB-Tk output (`gtdbtk.bac120.summary.tsv`) and summarises the lowest taxonomy obtained - output is used in other pipelines.
 * `get.RNA_profile.sh`: generate tRNA and rRNA analyses for a genome. Automatically tries to tar archive the RNA sequences for later use.
 * `get.coverage.sh`: uses samtools and bowtie to generate bam alignments for MAGs and isolate genomes from their fastq files. Facilitates getting coverage for these genomes (to be added).
 * the remaining files are part of the `MAG_pipeline.sh` pipeline
