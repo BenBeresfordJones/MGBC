@@ -1,0 +1,795 @@
+---
+title: "Figure 4"
+author: "Benjamin Beresford-Jones"
+date: "01/07/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Load packages
+```{r}
+library(readr)
+library(RColorBrewer)
+library(vegan)
+library(VennDiagram)
+library(ggplot2)
+library(ggpubr)
+library(ade4)
+library(Matrix)
+library(igraph)
+library(tidyverse)  # data manipulation
+library(cluster)    # clustering algorithms
+library(factoextra) # clustering algorithms & visualization
+library(dendextend)
+```
+
+## Set up colour schemes
+```{r}
+HOOMAN <- brewer.pal(12, "Paired")[2]
+MOOUSE <- brewer.pal(12, "Paired")[6]
+HM_cols = c(HOOMAN, MOOUSE)
+
+class_palette <- c(Actinobacteria="#80b1d3",
+                   Alphaproteobacteria="#ccebc5",
+                   Bacilli_A="#d9d9d9",
+                   Bacilli="#ffed6f",
+                   Bacteroidia="#b3de69",
+                   Campylobacteria="#8dd3c7",
+                   Clostridia="#fb8072",
+                   Coriobacteriia="#AED6F1",
+                   Deferribacteres="#ffffb3",
+                   Desulfovibrionia="#fdb462",
+                   Gammaproteobacteria="#bc80bd",
+                   Vampirovibrionia="#E6B0AA",
+                   Verrucomicrobiae="#bebada")
+
+
+```
+
+
+# Functional Venn
+
+## KO
+```{r}
+shared_KOs <- 7358
+total_human_KOs <- 8857
+total_mouse_KOs <- 7477
+
+(8857-7358)+7477
+
+shared_KOs/(total_human_KOs+total_mouse_KOs-shared_KOs)*100
+
+grid.newpage()
+draw.pairwise.venn(area1 = total_human_KOs, area2 = total_mouse_KOs, cross.area = shared_KOs, category = c("Human", "Mouse"), lty = rep("blank", 2), 
+                   fill = HM_cols, alpha = rep(0.5, 2), cat.pos = c(0, 0), cat.dist = rep(0.025, 2))
+
+pdf("~/Documents/PhD/Manuscripts/Human_Mouse_comparison/Figure 4/R_plots/KO_venn.jpg", height = 4, width = 5)
+grid.newpage()
+draw.pairwise.venn(area1 = total_human_KOs, area2 = total_mouse_KOs, cross.area = shared_KOs, category = c("Human", "Mouse"), lty = rep("blank", 2), 
+                   fill = HM_cols, alpha = rep(0.5, 2), cat.pos = c(0, 0), cat.dist = rep(0.025, 2))
+dev.off()
+```
+
+```{r}
+shared_IPR <- 7521
+total_human_IPR <- 9624
+total_mouse_IPR <- 7649
+
+(9624-7521)+7649
+
+shared_IPR/(total_human_IPR+total_mouse_IPR-shared_IPR)*100
+
+grid.newpage()
+draw.pairwise.venn(area1 = total_human_IPR, area2 = total_mouse_IPR, cross.area = shared_IPR, category = c("Human", "Mouse"), lty = rep("blank", 2), 
+    fill = HM_cols, alpha = rep(0.5, 2), cat.pos = c(0, 0), cat.dist = rep(0.025, 2))
+
+pdf("~/Documents/PhD/Manuscripts/Human_Mouse_comparison/Figure 4/R_plots/IPR_venn.jpg", height = 4, width = 5)
+grid.newpage()
+draw.pairwise.venn(area1 = total_human_IPR, area2 = total_mouse_IPR, cross.area = shared_IPR, category = c("Human", "Mouse"), lty = rep("blank", 2), 
+    fill = HM_cols, alpha = rep(0.5, 2), cat.pos = c(0, 0), cat.dist = rep(0.025, 2))
+dev.off()
+```
+
+## Distance analyses
+```{r}
+spec_ids <- read_tsv(file = "~/Documents/PhD/GTDB_species_ids.tsv", col_names = FALSE)
+colnames(spec_ids) <- c("Pan_species", "Genome")
+```
+
+### taxonomy
+```{r}
+# distance martrix
+load(file = "~/Documents/PhD/Distance_matrices/HM_rep_gtdbtk-align_dist-mat.RData")
+tax_dist <- m
+
+# metadata
+gtdb_meta <- read_tsv(file = "~/Documents/PhD/ALL_GENOMES_TAXONOMY.tsv", col_names = c("Genome", "Taxonomy"))
+d_gtdb_order <- data.frame(Genome=row.names(tax_dist))
+gtdb_meta <- gtdb_meta[which(gtdb_meta$Genome %in% d_gtdb_order$Genome),]
+gtdb_meta <- merge(x = d_gtdb_order, y = gtdb_meta, sort = FALSE, by = "Genome")
+
+list <- lapply(strsplit(gtdb_meta$Taxonomy, split = ";"), function(x) {
+  data.frame(Domain=x[1], Phylum=x[2], Class=x[3], Order=x[4], Family=x[5], Genus=x[6], Species=x[7])
+})
+
+gtdb_meta <- cbind(gtdb_meta, do.call("rbind", list))
+gtdb_meta$Host <- "Mouse"
+gtdb_meta$Host[grep(gtdb_meta$Genome, pattern = "GUT_GENOME")] <- "Human"
+gtdb_meta$Order[which(gtdb_meta$Order == "o__")] <- "o__NOV"
+gtdb_meta$Family[which(gtdb_meta$Family == "f__")] <- "f__NOV"
+gtdb_meta$Genus[which(gtdb_meta$Genus == "g__")] <- "g__NOV"
+gtdb_meta$Species[which(gtdb_meta$Species == "s__")] <- "s__NOV"
+gtdb_meta$Species[is.na(gtdb_meta$Species)] <- "s__NOV"
+```
+
+```{r}
+gtdb_meta <- merge(x = gtdb_meta, y = spec_ids, by = "Genome", all.x = TRUE, sort = FALSE)
+colnames(tax_dist) <- gtdb_meta$Pan_species
+row.names(tax_dist) <- gtdb_meta$Pan_species
+```
+
+```{r}
+load(file = "~/Documents/PhD/Distance_matrices/HM_rep_gtdbtk-align_d.RData")
+tax_coords <- d
+tax_coords <- data.frame(tax_coords$points, gtdb_meta$Class, gtdb_meta$Host)
+colnames(tax_coords) <- c("x", "y", "Class", "Host")
+```
+
+```{r}
+p_tax <- ggscatter(data = tax_coords, x = "x", y = "y", color = "Class")
+ggpar(p_tax, legend = "right")
+ggscatter(data = tax_coords, x = "x", y = "y", color = "Host", palette = HM_cols)
+```
+
+## Use Mantel tests to determine best distance method to use for functional comparison
+
+### IPR
+```{r}
+# metadata
+pan_metadata_IPR <- read_tsv(file = "~/Documents/PhD/IPS_DIST/FAM_IPR_metadata.tsv", col_names = FALSE)
+colnames(pan_metadata_IPR) <- c("rep_genome", "lowest_tax", "lowest_tax_full", "rank", "lowest_tax_short", "Taxonomy")
+
+list <- lapply(strsplit(pan_metadata_IPR$Taxonomy, split = ";"), function(x) {
+  data.frame(Domain=x[1], Phylum=x[2], Class=x[3], Order=x[4], Family=x[5], Genus=x[6], Species=x[7])
+})
+
+ipr_meta <- cbind(pan_metadata_IPR, do.call("rbind", list))
+ipr_meta$Order[which(ipr_meta$Order == "o__")] <- "o__NOV"
+ipr_meta$Family[which(ipr_meta$Family == "f__")] <- "f__NOV"
+ipr_meta$Genus[which(ipr_meta$Genus == "g__")] <- "g__NOV"
+ipr_meta$Species[which(ipr_meta$Species == "s__")] <- "s__NOV"
+ipr_meta$Species[is.na(ipr_meta$Species)] <- "s__NOV"
+ipr_meta$Host <- "Mouse"
+ipr_meta$Host[grep(ipr_meta$rep_genome, pattern = "GUT_GENOME")] <- "Human"
+colnames(ipr_meta)[1] <- "Genome"
+```
+
+```{r}
+ipr_meta <- merge(x = ipr_meta, y = spec_ids, by = "Genome", all.x = TRUE, sort = FALSE)
+```
+
+```{#r}
+# Canberra - IPR Family
+load(file = "Documents/PhD/IPS_DIST/FAMILY_PAN_FRAC.canberra.binary.FALSE.dist_mat.RData")
+dist <- as.matrix(dist_mat)
+colnames(dist) <- ipr_meta$Pan_species
+row.names(dist) <- ipr_meta$Pan_species
+dist <- dist[order(ipr_meta$Pan_species),order(ipr_meta$Pan_species)]
+mantel(tax_dist_reordered, dist)
+# Mantel statistic r: 0.6921 
+#      Significance: 0.001 
+
+# jaccard - family
+load(file = "Documents/PhD/IPS_DIST/FAMILY_PAN_FRAC.jaccard.binary.FALSE.dist_mat.RData")
+dist <- as.matrix(dist_mat)
+colnames(dist) <- ipr_meta$Pan_species
+row.names(dist) <- ipr_meta$Pan_species
+dist <- dist[order(ipr_meta$Pan_species),order(ipr_meta$Pan_species)]
+mantel(tax_dist_reordered, dist)
+# Mantel statistic r: 0.7256                                                                     ######### BEST ##########
+#      Significance: 0.001 
+
+# Chao - family
+load(file = "Documents/PhD/IPS_DIST/FAMILY_PAN_FRAC.chao.binary.FALSE.dist_mat.RData")
+dist <- as.matrix(dist_mat)
+colnames(dist) <- ipr_meta$Pan_species
+row.names(dist) <- ipr_meta$Pan_species
+dist <- dist[order(ipr_meta$Pan_species),order(ipr_meta$Pan_species)]
+mantel(tax_dist_reordered, dist)
+# Mantel statistic r: 8.694e-05 
+#      Significance: 0.437 
+
+# Euclidean - family
+load(file = "Documents/PhD/IPS_DIST/FAMILY_PAN_FRAC.euclidean.binary.FALSE.dist_mat.RData")
+dist <- as.matrix(dist_mat)
+colnames(dist) <- ipr_meta$Pan_species
+row.names(dist) <- ipr_meta$Pan_species
+dist <- dist[order(ipr_meta$Pan_species),order(ipr_meta$Pan_species)]
+mantel(tax_dist_reordered, dist)
+# Mantel statistic r: 0.4135 
+#      Significance: 0.001 
+
+#  Canberra - All
+load(file = "Documents/PhD/ALL_IPR_DIST/ALL_PAN_FRAC.canberra.binary.FALSE.dist_mat.RData")
+dist <- as.matrix(dist_mat)
+colnames(dist) <- ipr_meta$Pan_species
+row.names(dist) <- ipr_meta$Pan_species
+dist <- dist[order(ipr_meta$Pan_species),order(ipr_meta$Pan_species)]
+mantel(tax_dist_reordered, dist)
+# Mantel statistic r: 0.6676 
+#      Significance: 0.001 
+
+# Euclidean - All
+load(file = "Documents/PhD/ALL_IPR_DIST/ALL_PAN_FRAC.euclidean.binary.FALSE.dist_mat.RData")
+dist <- as.matrix(dist_mat)
+colnames(dist) <- ipr_meta$Pan_species
+row.names(dist) <- ipr_meta$Pan_species
+dist <- dist[order(ipr_meta$Pan_species),order(ipr_meta$Pan_species)]
+mantel(tax_dist_reordered, dist)
+# Mantel statistic r: 0.4862 
+#      Significance: 0.001 
+
+# Jaccard - All
+load(file = "Documents/PhD/ALL_IPR_DIST/ALL_PAN_FRAC.jaccard.binary.FALSE.dist_mat.RData")
+dist <- as.matrix(dist_mat)
+colnames(dist) <- ipr_meta$Pan_species
+row.names(dist) <- ipr_meta$Pan_species
+dist <- dist[order(ipr_meta$Pan_species),order(ipr_meta$Pan_species)]
+mantel(tax_dist_reordered, dist)
+# Mantel statistic r: 0.7139 
+#      Significance: 0.001 
+```
+
+### KO
+```{r}
+# metadata
+pan_metadata_KO <- read_tsv(file = "~/Documents/PhD/Pangenome_analyses/pangenome_KO-metadata.tsv", col_names = FALSE)
+colnames(pan_metadata_KO) <- c("rep_genome", "lowest_tax", "lowest_tax_full", "rank", "lowest_tax_short", "Taxonomy")
+
+list <- lapply(strsplit(pan_metadata_KO$Taxonomy, split = ";"), function(x) {
+  data.frame(Domain=x[1], Phylum=x[2], Class=x[3], Order=x[4], Family=x[5], Genus=x[6], Species=x[7])
+})
+
+ko_meta <- cbind(pan_metadata_KO, do.call("rbind", list))
+ko_meta$Order[which(ko_meta$Order == "o__")] <- "o__NOV"
+ko_meta$Family[which(ko_meta$Family == "f__")] <- "f__NOV"
+ko_meta$Genus[which(ko_meta$Genus == "g__")] <- "g__NOV"
+ko_meta$Species[which(ko_meta$Species == "s__")] <- "s__NOV"
+ko_meta$Species[is.na(ko_meta$Species)] <- "s__NOV"
+ko_meta$Host <- "Mouse"
+ko_meta$Host[grep(ko_meta$rep_genome, pattern = "GUT_GENOME")] <- "Human"
+colnames(ko_meta)[1] <- "Genome"
+```
+
+```{r}
+ko_meta <- merge(x = ko_meta, y = spec_ids, by = "Genome", all.x = TRUE, sort = FALSE)
+```
+
+```{#r}
+# jaccard - KO
+load(file = "Documents/PhD/Distance_matrices/pan.jaccard.binary.FALSE.dist_mat.RData")
+dist <- as.matrix(dist_mat)
+colnames(dist) <- ko_meta$Pan_species
+row.names(dist) <- ko_meta$Pan_species
+dist <- dist[order(ko_meta$Pan_species),order(ko_meta$Pan_species)]
+mantel(tax_dist_reordered, dist)
+# Mantel statistic r: 0.5937 
+#      Significance: 0.001 
+
+# Bray - KO
+load(file = "Documents/PhD/Distance_matrices/pan.bray.binary.FALSE.dist_mat.RData")
+dist <- as.matrix(dist_mat)
+colnames(dist) <- ko_meta$Pan_species
+row.names(dist) <- ko_meta$Pan_species
+dist <- dist[order(ko_meta$Pan_species),order(ko_meta$Pan_species)]
+mantel(tax_dist_reordered, dist)
+# Mantel statistic r: 0.5705 
+#      Significance: 0.001 
+
+# Euclidean - KO
+load(file = "Documents/PhD/Distance_matrices/pan.euclidean.binary.FALSE.dist_mat.RData")
+dist <- as.matrix(dist_mat)
+colnames(dist) <- ko_meta$Pan_species
+row.names(dist) <- ko_meta$Pan_species
+dist <- dist[order(ko_meta$Pan_species),order(ko_meta$Pan_species)]
+mantel(tax_dist_reordered, dist)
+# Mantel statistic r: 0.3262 
+#      Significance: 0.001 
+
+# Binomial - KO
+load(file = "Documents/PhD/Distance_matrices/pan.binomial.binary.FALSE.dist_mat.RData")
+dist <- as.matrix(dist_mat)
+colnames(dist) <- ko_meta$Pan_species
+row.names(dist) <- ko_meta$Pan_species
+dist <- dist[order(ko_meta$Pan_species),order(ko_meta$Pan_species)]
+mantel(tax_dist_reordered, dist)
+# Mantel statistic r: 0.2325 
+#      Significance: 0.001 
+
+# Horn - KO
+load(file = "Documents/PhD/Distance_matrices/pan.horn.binary.FALSE.dist_mat.RData")
+dist <- as.matrix(dist_mat)
+colnames(dist) <- ko_meta$Pan_species
+row.names(dist) <- ko_meta$Pan_species
+dist <- dist[order(ko_meta$Pan_species),order(ko_meta$Pan_species)]
+mantel(tax_dist_reordered, dist)
+# Mantel statistic r: 0.5628 
+#      Significance: 0.001 
+```
+
+
+
+## IPR
+```{r}
+# distance matrix
+load(file = "~/Documents/PhD/IPS_DIST/FAMILY_PAN_FRAC.jaccard.binary.FALSE.dist_mat.RData")
+jac_dist <- as.matrix(dist_mat)
+
+colnames(jac_dist) <- ipr_meta$Pan_species
+row.names(jac_dist) <- ipr_meta$Pan_species
+```
+
+```{r}
+load(file = "~/Documents/PhD/IPS_DIST/FAMILY_PAN_FRAC.jaccard.binary.FALSE.d.RData")
+jac_coords <- d2
+jac_coords <- data.frame(jac_coords$points, ipr_meta$Phylum, ipr_meta$Class, ipr_meta$Host)
+colnames(jac_coords) <- c("x", "y", "Phylum", "Class", "Host")
+```
+
+
+```{r}
+# change labels for class
+jac_coords$Class <- gsub(jac_coords$Class, pattern = "c__", replacement = "")
+tax_coords$Class <- gsub(tax_coords$Class, pattern = "c__", replacement = "")
+```
+
+
+
+## Generate PCoA
+```{r}
+p_jac <- ggscatter(data = jac_coords, x = "x", y = "y", color = "Class", size = 1)
+ggpar(p_jac, legend = "right")
+```
+
+```{r}
+COI <- names(sort(table(jac_coords$Class[which(jac_coords$Host == "Human")][jac_coords$Class[which(jac_coords$Host == "Human")] %in% jac_coords$Class[which(jac_coords$Host == "Mouse")]]), decreasing = TRUE))
+```
+
+```{r}
+jac_test <- jac_coords
+jac_test$Class[which(!(jac_test$Class %in% COI))] <- "Other"
+
+tax_test <- tax_coords
+tax_test$Class[which(!(tax_test$Class %in% COI))] <- "Other"
+```
+
+```{r}
+#class_palette["Bacilli_A"]
+class_palette_2 <- c(class_palette, "Other"="#d9d9d9")
+class_palette_2["Bacilli_A"] <- "#bdbdbd"
+
+names(class_palette_2)
+```
+
+
+```{r}
+p_jac <- ggscatter(data = jac_test, x = "x", y = "y", color = "Class", size = 1.5, palette = class_palette_2,
+                   title = "functional distances") +
+   theme(axis.line = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.grid.major.y = element_blank(),
+    axis.title.x = element_blank(),
+    axis.title.y = element_blank(),
+    plot.title = element_text(hjust = 0.5),
+    axis.text.x = element_blank(),
+    axis.text.y = element_blank(),
+    axis.ticks = element_blank(),
+    panel.border = element_rect(colour = "black", fill = NA),
+    legend.position = "none"
+  ) +
+  theme(aspect.ratio = 1) +
+  scale_color_manual(values = class_palette_2, breaks=names(class_palette_2)) 
+p_jac
+ggpar(p_jac, legend = "right")
+```
+
+```{r}
+p_tax <- ggscatter(data = tax_test, x = "x", y = "y", 
+                   color = "Class", 
+                   size = 1.5, 
+                   palette = class_palette_2, 
+                   title = "phylogenetic distances"
+                   ) +
+     theme(axis.line = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.grid.major.y = element_blank(),
+    axis.title.x = element_blank(),
+    axis.title.y = element_blank(),
+    plot.title = element_text(hjust = 0.5),
+    axis.text.x = element_blank(),
+    axis.text.y = element_blank(),
+    axis.ticks = element_blank(),
+    panel.border = element_rect(colour = "black", fill = NA),
+    legend.position = "none"
+  ) +
+  theme(aspect.ratio = 1) +
+  annotate("text", x = 1, y = -1, label = "Mantel test\nr: 0.7256\np-value: 0.001", size = 3.5, hjust = "outward")
+p_tax
+
+p_tax_wLegend <- ggscatter(data = tax_test, x = "x", y = "y", 
+                   color = "Class", 
+                   size = 1.5, 
+                   palette = class_palette_2, 
+                   title = "phylogenetic distances"
+                   ) +
+     theme(axis.line = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.grid.major.y = element_blank(),
+    axis.title.x = element_blank(),
+    axis.title.y = element_blank(),
+    plot.title = element_text(hjust = 0.5),
+    axis.text.x = element_blank(),
+    axis.text.y = element_blank(),
+    axis.ticks = element_blank(),
+    panel.border = element_rect(colour = "black", fill = NA),
+    legend.position = "right"
+  ) +
+  theme(aspect.ratio = 1) +
+  annotate("text", x = 1, y = -1, label = "Mantel test\nr: 0.7256\np-value: 0.001", size = 3.5, hjust = "outward")
+p_tax_wLegend
+
+pdf("~/Documents/PhD/Manuscripts/Human_Mouse_comparison/Figure 4/R_plots/pcoa_comaprison_LEGEND.pdf", width = 6, height = 4)
+p_tax_wLegend
+dev.off()
+
+#ggpar(p, legend = "right", xlab = FALSE, ylab = FALSE)
+```
+
+```{r}
+ggarrange(p_jac, p_tax)
+
+jpeg("~/Documents/PhD/Manuscripts/Human_Mouse_comparison/Figure 4/R_plots/pcoa.jpg", width = 600, height = 300)
+ggarrange(p_jac, p_tax)
+dev.off()
+
+pdf("~/Documents/PhD/Manuscripts/Human_Mouse_comparison/Figure 4/R_plots/pcoa_comaprison.pdf", width = 8, height = 4)
+ggarrange(p_jac, p_tax)
+dev.off()
+```
+
+
+```{r}
+ggscatter(data = jac_coords, x = "x", y = "y", color = "Host", palette = HM_cols)
+ggscatter(data = jac_coords, x = "x", y = "y", color = "Phylum", ellipse = TRUE, size = 0)
+ggscatter(data = jac_coords, x = "x", y = "y", color = "Class", ellipse = TRUE, size = 0)
+```
+
+
+# compare distance matrices
+```{r}
+tax_dist_reordered <- tax_dist[order(gtdb_meta$Pan_species),order(gtdb_meta$Pan_species)]
+jac_dist_reordered <- jac_dist[order(ipr_meta$Pan_species),order(ipr_meta$Pan_species)]
+```
+
+```{r}
+mantel(tax_dist_reordered, jac_dist_reordered)
+# Mantel statistic r: 0.7256 
+#      Significance: 0.001 
+```
+
+
+# Divergence between taxonomy and function
+
+```{r}
+gtdb_meta_reordered <- gtdb_meta[order(gtdb_meta$Pan_species),]
+ipr_meta_reordered <- ipr_meta[order(ipr_meta$Pan_species),]
+```
+
+## exclude singleton data
+
+```{r}
+mt <- unique(as.character(unlist(ipr_meta_reordered[which(ipr_meta_reordered$Host == "Mouse"),c(7:12)]))) # exclude species
+mt <- mt[grep(mt, pattern = "NOV", invert = TRUE)]
+ht <- unique(as.character(unlist(ipr_meta_reordered[which(ipr_meta_reordered$Host == "Human"),c(7:12)]))) # exclude species
+ht <- ht[grep(ht, pattern = "NOV", invert = TRUE)]
+
+TOI <- ht[which(ht %in% mt)]
+```
+
+```{r}
+tmp <- data.frame(table(as.character(unlist(ipr_meta_reordered[,c(7:12)]))[which(as.character(unlist(ipr_meta_reordered[,c(7:12)])) %in% TOI)]))
+tmp <- tmp[tmp$Freq > 2,]
+
+TOI <- TOI[which(TOI %in% tmp$Var1)]
+```
+
+```{r}
+out_list <- lapply(colnames(ipr_meta_reordered)[7:12], function(x) {
+  i <- grep(colnames(ipr_meta_reordered), pattern = x)
+  tax <- unique(ipr_meta_reordered[,i])
+  tax <- tax[which(tax %in% TOI)]
+  
+  list <- lapply(tax, function(y) {
+    tmp <- which(ipr_meta_reordered[,i] == y)
+    Host <- adonis(jac_dist_reordered[tmp,tmp] ~ Host, data = ipr_meta_reordered[tmp,], permutations = 999)$aov[1,5]
+    y.pattern <- paste0(y, ";")
+    Class <- unique(ipr_meta_reordered$Class[grep(pattern = y.pattern, ipr_meta_reordered$Taxonomy)])
+    Class_in <- ifelse(length(Class) == 1, Class, NA)
+    
+    data.frame(tax_level=x, 
+               tax=y,
+               Class=Class_in,
+               Host_r2=Host)
+  })
+  
+  do.call("rbind", list)
+})
+
+df <- do.call("rbind", out_list)
+ipr_df <- df
+```
+
+```{r}
+out_list <- lapply(colnames(gtdb_meta_reordered)[3:8], function(x) {
+  i <- grep(colnames(gtdb_meta_reordered), pattern = x)
+  tax <- unique(gtdb_meta_reordered[,i])
+  tax <- tax[which(tax %in% TOI)]
+  
+  list <- lapply(tax, function(y) {
+    tmp <- which(gtdb_meta_reordered[,i] == y)
+    Host <- adonis(tax_dist_reordered[tmp,tmp] ~ Host, data = gtdb_meta_reordered[tmp,], permutations = 999)$aov[1,5]
+    y.pattern <- paste0(y, ";")
+    Class <- unique(gtdb_meta_reordered$Class[grep(pattern = y.pattern, gtdb_meta_reordered$Taxonomy)])
+    Class_in <- ifelse(length(Class) == 1, Class, NA)
+    
+    data.frame(tax_level=x, 
+               tax=y,
+               Class=Class_in,
+               Host_r2=Host)
+  })
+  
+  do.call("rbind", list)
+})
+
+df <- do.call("rbind", out_list)
+tax_df <- df
+```
+
+```{r}
+colnames(ipr_df)[4] <- "ipr_r2"
+colnames(tax_df)[4] <- "tax_r2"
+
+df_data_NS <- merge(ipr_df, tax_df, by = "tax", sort = FALSE)
+df_data_NS$delta <- df_data_NS$ipr_r2 - df_data_NS$tax_r2
+
+df_data_NS$perc <- df_data_NS$ipr_r2/df_data_NS$tax_r2*100
+df_data_NS$ratio <- df_data_NS$ipr_r2/df_data_NS$tax_r2
+```
+
+```{r}
+shared_class <- unique(df_data_NS$Class.x[which(!(is.na(df_data_NS$Class.x)))])
+Top6 <- names(head(sort(table(ipr_meta_reordered$Class[which(ipr_meta_reordered$Class %in% shared_class)]), decreasing = TRUE), 6))
+Top4 <- c("c__Clostridia", "c__Bacteroidia", "c__Bacilli", "c__Gammaproteobacteria")
+
+df_data_Top6 <- df_data_NS[which(df_data_NS$Class.x %in% Top6),]
+df_data_Top6$Class.x <- gsub(df_data_Top6$Class.x, pattern = "c__", replacement = "")
+
+df_data_Top4 <- df_data_NS[which(df_data_NS$Class.x %in% Top4),]
+df_data_Top4$Class.x <- gsub(df_data_Top4$Class.x, pattern = "c__", replacement = "")
+```
+
+```{r}
+p <- ggboxplot(df_data_Top4, x = "tax_level.x", y = "ratio", 
+               color = "black", fill = "Class.x", palette = class_palette,
+               remove = c("Domain", "Phylum"), 
+               xlab = FALSE, ylab = "Ratio of variance explained by host - Function:Taxonomy")
+
+ggpar(p, legend = "right", legend.title = "Class") +
+  geom_hline(yintercept = 1, linetype = "dashed", color = "darkgrey")
+
+
+pdf("~/Documents/PhD/Manuscripts/Human_Mouse_comparison/Figure 4/R_plots/tax_func_divergence-ratio.pdf", width = 7, height = 5)
+ggpar(p, legend = "right", legend.title = "Class") +
+  geom_hline(yintercept = 1, linetype = "dashed", color = "darkgrey")
+dev.off()
+
+
+ggpar(p, legend = "right", yscale = "log10", legend.title = "Class") +
+  geom_hline(yintercept = 1, linetype = "dashed", color = "darkgrey")
+
+
+p <- ggboxplot(df_data_Top4, x = "tax_level.x", y = "delta", 
+               color = "black", fill ="Class.x", palette = class_palette,
+               remove = c("Domain", "Phylum"),
+               xlab = FALSE, ylab = "Delta variance explained by host metadata: Function-Taxonomy")
+
+ggpar(p, legend = "right", legend.title = "Class") +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "darkgrey")
+```
+
+
+```{r}
+get.mean_95CI <- function(TAX, RANK) {
+  test <- df_data_NS[which(df_data_NS$Class.x == TAX & df_data_NS$tax_level.x == RANK),]
+  n <- nrow(test)
+  if(n > 1) {
+    dmean <- mean(test$delta)
+    s <- sd(test$delta)
+    degf <- n-1
+    lbr <- round(dmean-abs(qt(0.05/2, degf))*(s/sqrt(n)), digits = 5)
+    ubr <- round(dmean+abs(qt(0.05/2, degf))*(s/sqrt(n)), digits = 5)
+    Signif <- ifelse(between(0, lbr, ubr), "NS", "*")
+    
+    WILCO <- wilcox.test(test$tax_r2, test$ipr_r2, paired = TRUE)$p.value
+  
+    data.frame(Class=TAX, Level=RANK, 
+               Mean=dmean, 
+               Lower_bound=lbr,
+               Upper_bound=ubr,
+               Signif=Signif,
+               Wilcox=WILCO)
+  } else {
+    data.frame(Class=TAX, Level=RANK, 
+               Mean=test$delta, 
+               Lower_bound=NA,
+               Upper_bound=NA,
+               Signif=NA,
+               Wilcox=NA)
+  }
+}
+```
+
+
+```{r}
+TAXLEVELS <- tail(unique(df_data_NS$tax_level.x), 4)
+
+list6 <- lapply(TAXLEVELS, function(x) {
+  list2 <- lapply(Top6, function(y) {
+    get.mean_95CI(y, x)
+  })
+  do.call("rbind", list2)
+})
+
+list4 <- lapply(TAXLEVELS, function(x) {
+  list2 <- lapply(Top4, function(y) {
+    get.mean_95CI(y, x)
+  })
+  do.call("rbind", list2)
+})
+```
+
+```{r}
+sig_df_Top6 <- do.call("rbind", list6)
+sig_df_Top4 <- do.call("rbind", list4)
+
+sig_df_Top4$Class <- gsub(sig_df_Top4$Class, pattern = "c__", replacement = "")
+
+sig_df_Top6$Level <- factor(sig_df_Top6$Level, levels = unique(sig_df_Top6$Level))
+sig_df_Top4$Level <- factor(sig_df_Top4$Level, levels = rev(unique(sig_df_Top4$Level)))
+
+sig_df_Top4$Class <- factor(sig_df_Top4$Class, levels = sort(unique(sig_df_Top4$Class), decreasing = TRUE))
+```
+
+```{r}
+p <- ggplot(sig_df_Top4, aes(x=Level, y=Mean, colour=Class, group=Class)) + 
+  ylab("Delta variance explained by host: Taxonomy <--> Function") +
+    geom_errorbar(aes(ymin=Lower_bound, ymax=Upper_bound), colour="black", width=0, position=position_dodge(0.6)) +
+    geom_point(position=position_dodge(0.6), size=3, shape=19) +
+  geom_hline(yintercept = 0, linetype = "longdash", #"dotted", 
+             color = "darkgrey") +
+  scale_color_manual(values = class_palette, breaks=rev(levels(sig_df_Top4$Class))) +
+  theme_pubr()
+ggpar(p, rotate = TRUE, legend = "right", ylab = FALSE)
+```
+
+
+```{r}
+p <- ggplot(sig_df_Top4, aes(x=Level, y=Mean, colour=Class, group=Class)) + 
+  ylab("Delta variance explained by host: Taxonomy <--> Function") +
+    geom_errorbar(aes(ymin=Lower_bound, ymax=Upper_bound), colour="black", width=0, position=position_dodge(0.6)) +
+    geom_point(position=position_dodge(0.6), size=3, shape=19) +
+  geom_hline(yintercept = 0, linetype = "longdash", #"dotted", 
+             color = "darkgrey") +
+  scale_color_manual(values = class_palette, breaks=rev(levels(sig_df_Top4$Class))) +
+  annotate("text", label = "p=0.031 *", x = 2.1, y = 0.1, size = 3.5, hjust = "outward", fontface = "bold") +
+  annotate("text", label = "p=0.039 *", x = 2.26, y = 0.1, size = 3.5, hjust = "outward", fontface = "bold") +
+  annotate("text", label = "p=0.078", x = 2.96, y = 0.1, size = 3.5, hjust = "outward") +
+  annotate("text", label = "p=0.067", x = 1.28, y = 0.1, size = 3.5, hjust = "outward") +
+  annotate("text", label = "p=0.089", x = 1.11, y = 0.1, size = 3.5, hjust = "outward") +
+  theme_pubr()
+ggpar(p, rotate = TRUE, legend = "right", ylab = FALSE)
+
+pdf("~/Documents/PhD/Manuscripts/Human_Mouse_comparison/Figure 4/R_plots/tax_func_divergence-delta.pdf", width = 7, height = 5)
+ggpar(p, rotate = TRUE, legend = "right", ylab = FALSE)
+dev.off()
+```
+
+
+```{r}
+df_data_NS$Class.x <- gsub(df_data_NS$Class.x, pattern = "c__", replacement = "")
+ggboxplot(df_data_NS, x = "tax_level.x", y = "ipr_r2", color = "Class.x", remove = c("Domain", "Phylum"),
+          palette = class_palette_2)
+```
+
+
+
+
+
+# Database efficiency
+
+## IPR
+```{r}
+ipr_eff <- read_tsv(file = "~/Documents/PhD/IPR-efficiency.tsv", col_names = FALSE)
+colnames(ipr_eff)[c(1,2,3,4,5,10,12)] <- c("Species", "Predicted_genes", "All_ipr", "Fam_ipr", "Host", "Lowest_taxonomy", "Taxonomy")
+ipr_eff$All_frac <- ipr_eff$All_ipr/ipr_eff$Predicted_genes*100
+ipr_eff$Fam_frac <- ipr_eff$Fam_ipr/ipr_eff$Predicted_genes*100
+ipr_eff$Class <- unlist(lapply(strsplit(ipr_eff$Taxonomy, split = ";.__"), function(x) {
+    x[3]
+}))
+```
+
+```{r}
+summary(ipr_eff$All_frac)
+summary(ipr_eff$Fam_frac)
+```
+
+```{r}
+COI <- sort(table(ipr_eff$Class[which(ipr_eff$Host == "HUMAN")][ipr_eff$Class[which(ipr_eff$Host == "HUMAN")] %in% ipr_eff$Class[which(ipr_eff$Host == "MOUSE")]]), decreasing = TRUE)
+ipr <- ipr_eff[which(ipr_eff$Class %in% names(COI)),]
+ipr_top6 <- ipr_eff[which(ipr_eff$Class %in% head(names(COI), 6)),]
+```
+
+```{r}
+p <- ggboxplot(data = ipr, x = "Class", y = "Fam_frac", 
+               fill = "Class", palette = class_palette, 
+               order = names(COI), 
+               xlab = FALSE
+               ) +
+  theme(panel.grid.major.y = element_line(colour = "lightgrey")) +
+  theme(panel.grid.minor.y = element_line())
+
+  
+ggpar(p, rotate = FALSE, ylab = "% IPR assigned genes", x.text.angle = 30, legend = "none")
+
+jpeg("~/Documents/PhD/Manuscripts/Human_Mouse_comparison/Figure 4/R_plots/ipr_efficiency_class.png", height = 245, width = 600)
+ggpar(p, rotate = FALSE, ylab = "% IPR assigned genes", x.text.angle = 30, legend = "none")
+dev.off()
+
+pdf("~/Documents/PhD/Manuscripts/Human_Mouse_comparison/Figure 4/R_plots/ipr_efficiency_class.pdf", height = 3.27, width = 8)
+ggpar(p, rotate = FALSE, ylab = "% IPR assigned genes", x.text.angle = 30, legend = "none")
+dev.off()
+```
+
+
+```{r}
+ggboxplot(data = ipr, x = "Host", y = "Fam_frac", color = "Host", palette = HM_cols, 
+          add = "dotplot", add.params = list(binwidth = 0.6, color = "Host", size = 0.6),
+          ylab = "% IPR assigned genes") +
+  stat_compare_means(comparisons = list(c("HUMAN", "MOUSE"))) +
+  theme(legend.position = "none")
+```
+
+```{r}
+p <- ggdotplot(ipr, x = "Host", y = "Fam_frac", 
+          color = "Host", palette = HM_cols, 
+          point.size = 0.01, binwidth = 1,
+          facet.by = "Class", 
+          ylab = "% IPR assigned genes", xlab = FALSE) + 
+  stat_compare_means(comparisons = list(c("HUMAN", "MOUSE"))) +
+  theme(legend.position = "none")
+ggpar(p, ylim = c(0,100))
+
+p <- ggdotplot(ipr_top6, x = "Host", y = "Fam_frac", 
+          color = "Host", palette = HM_cols, 
+          point.size = 0.01, binwidth = 1,
+          facet.by = "Class", 
+          ylab = "% IPR assigned genes", xlab = FALSE) + 
+  stat_compare_means(comparisons = list(c("HUMAN", "MOUSE"))) +
+  theme(legend.position = "none")
+ggpar(p, ylim = c(0,100))
+```
+
+

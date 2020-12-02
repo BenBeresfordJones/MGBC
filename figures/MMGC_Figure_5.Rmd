@@ -1,0 +1,1573 @@
+---
+title: "Figure 6 - SCFA"
+author: "Benjamin Beresford-Jones"
+date: "14/08/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(readr)
+library(ggpubr)
+library(reshape2)
+library(grid)
+library(gridExtra)
+```
+
+
+```{r}
+indir2 <- "~/Documents/PhD/Manuscripts/MCGC_18075/Figure_2/data/"
+indir1 <- "~/Documents/PhD/Manuscripts/MCGC_18075/Figure_1/data/"
+indir <- "~/Documents/PhD/Manuscripts/MCGC_18075/Figure_5/data/"
+outdir <- "~/Documents/PhD/Manuscripts/MCGC_18075/Figure_5/"
+set.seed(0)
+```
+
+
+## Load data.
+
+```{r}
+gsi <- read_tsv(file = paste0(indir2,"new_taxonomy.txt"), col_names = F)
+
+BCoAT <- read_tsv(file = paste0(indir, "pangenome.IPR023990.out.tsv"), col_names = FALSE)
+buk <- read_tsv(file = paste0(indir, "pangenome.IPR011245.out.tsv"), col_names = FALSE)
+ptb <- read_tsv(file = paste0(indir, "pangenome.IPR014079.out.tsv"), col_names = FALSE)
+
+# bcoat
+H_BCoAT <- read_tsv(file = paste0(indir, "human.IPR023990.taxonomy.out.tsv"), col_names = F)
+M_BCoAT <- read_tsv(file = paste0(indir, "mouse.IPR023990.taxonomy.out.tsv"), col_names = F)
+
+# ptb
+H_ptb <- read_tsv(file = paste0(indir, "human.IPR014079.taxonomy.out.tsv"), col_names = F)
+M_ptb <- read_tsv(file = paste0(indir, "mouse.IPR014079.taxonomy.out.tsv"), col_names = F)
+
+# buk
+H_buk <- read_tsv(file = paste0(indir, "human.IPR011245.taxonomy.out.tsv"), col_names = F)
+M_buk <- read_tsv(file = paste0(indir, "mouse.IPR011245.taxonomy.out.tsv"), col_names = F)
+
+# microbiome
+df_s <- read_tsv(paste0(indir2, "merged_bracken.S.tsv"), col_names = TRUE)
+df_s$Species_read_fraction <- df_s$Species_read_fraction*100
+
+new_tax <- read_tsv(file = "~/Documents/PhD/Manuscripts/MCGC_18075/Figure_4/Data/kraken_batchfile-18075.tsv", col_names = FALSE)
+```
+
+```{r}
+pan_col <- c("Pangenome", "With", "Total", "Host", "Lowest_taxonomy", "Rank", "Taxonomy")
+```
+
+# fix names
+
+```{r}
+gsi$X2 <- gsub(pattern = "MCGC", replacement = "MMGC", x = gsi$X2)
+df_s$Species <- gsub(pattern = "MCGC", replacement = "MMGC", x = df_s$Species)
+```
+
+
+
+### Fix names of bracken files
+```{r}
+df_s$Sample[which(df_s$Sample == "Sample_H2OW0M8_kneaddata")] <- "ERR580905_kneaddata"
+```
+
+# qc metagenomes
+```{r}
+MAG_samples <- as.character(unlist(read_csv(file = paste0(indir1, "successful_MAG_samples.txt"), col_names = FALSE)))
+
+sample_ids <- unlist(lapply(strsplit(unique(df_s$Sample), split = "_"), function(x) { 
+  gsub(pattern = "\\.3", replacement = "", x[1]) 
+  }))
+
+# add sample ids for mgp15975 samples (all of which produced MAGs)
+MAG_samples <- c(MAG_samples, 
+  sample_ids[grep("^C.$|^E.$|^T.$", sample_ids)])
+
+qc_samples <- unique(df_s$Sample)[which(sample_ids %in% MAG_samples)]
+df_s <- df_s[which(df_s$Sample %in% qc_samples),]
+```
+
+
+## Functions
+```{r}
+prop.EC <- function(df, title) {
+  list <- lapply(split(df, f = df$Host), function(x) {
+    data.frame(length(which(x$Frac > 50))/nrow(x)*100, "Host"=unique(x$Host))
+    })
+
+  prop_data <- do.call("rbind", list)
+  colnames(prop_data) <- c("Proportion", "Host")
+
+  ggbarplot(prop_data, x = "Host", y = "Proportion", title = title)
+}
+
+annotate.taxonomy <- function(df) {
+  df$Phylum <- unlist(lapply(strsplit(df$Taxonomy, split = ";"), function(x) { x[2] }))
+  df$Class <- unlist(lapply(strsplit(df$Taxonomy, split = ";"), function(x) { x[3] }))
+  df$Order <- unlist(lapply(strsplit(df$Taxonomy, split = ";"), function(x) { x[4] }))
+  df$Family <- unlist(lapply(strsplit(df$Taxonomy, split = ";"), function(x) { x[5] }))
+  df$Genus <- unlist(lapply(strsplit(df$Taxonomy, split = ";"), function(x) { x[6] }))
+  df$Species <- unlist(lapply(strsplit(df$Taxonomy, split = ";"), function(x) { x[7] }))
+  df
+}
+ 
+analyse.pangenome <- function(pangenome) { # fraction of species where >50% of genomes encode gene
+  title <- deparse(substitute(pangenome))
+  colnames(pangenome) <- pan_col
+  pangenome$Frac <- pangenome$With/pangenome$Total*100
+  pangenome <- annotate.taxonomy(pangenome)
+  prop.EC(pangenome, title)
+}
+
+
+prop.phylum <- function(df, title) {
+  list <- lapply(split(df, f = df$Host), function(x) {
+    data.frame(table(x$Phylum) / nrow(x) *100, "Host"=unique(x$Host))
+    })
+
+  prop_data <- do.call("rbind", list)
+  colnames(prop_data) <- c("Phylum", "Proportion", "Host")
+  prop_data$Phylum <- gsub(prop_data$Phylum, pattern = "p__", replacement = "")
+
+  ggbarplot(prop_data, x = "Host", y = "Proportion", 
+            color = "Phylum", fill = "Phylum", 
+            title = title)
+}
+
+analyse.pangenome_taxonomy <- function(pangenome) {
+  title <- deparse(substitute(pangenome))
+  colnames(pangenome) <- pan_col
+  pangenome$Frac <- pangenome$With/pangenome$Total*100
+  pangenome <- annotate.taxonomy(pangenome)
+  pangenome <- pangenome[which(pangenome$Frac > 50),]
+  prop.phylum(pangenome, title)
+}
+```
+
+## MCGC-level butyrate genes
+
+Species
+Genus
+
+
+
+# BCoAT gene
+
+```{r}
+#H_BCoAT <- read_tsv(file = "~/Documents/PhD/SCFA_IPR/human.IPR023990.taxonomy.out.tsv", col_names = F)
+#M_BCoAT <- read_tsv(file = "~/Documents/PhD/SCFA_IPR/mouse.IPR023990.taxonomy.out.tsv", col_names = F)
+```
+
+```{r}
+colnames(H_BCoAT)[6] <- "Taxonomy"
+colnames(M_BCoAT)[6] <- "Taxonomy"
+HB <- annotate.taxonomy(H_BCoAT)
+MB <- annotate.taxonomy(M_BCoAT)
+```
+
+
+### Species-level analysis
+
+```{r}
+# Taxonomy file data is each genome that encodes at least one of the BCoAT genes; numerically speaking, this analysis reveals which species has the most genomes encoding the gene e.g. the pangenome$With column.
+HB$Species <- gsub(x = HB$Species, pattern = "s__", replacement = "")
+HB$Species[which(HB$Species == "")] <- "s__"
+
+p <- ggbarplot(data.frame(sort(table(HB$Species), decreasing = T)), x = "Var1", y = "Freq", top = 20) 
+
+ggpar(p, x.text.angle = 60, font.xtickslab = c(10), 
+      xlab = "Species", ylab = "Genome count")
+
+```
+
+```{r}
+MB$Species <- gsub(x = MB$Species, pattern = "s__", replacement = "")
+MB$Species[which(MB$Species == "")] <- "s__"
+
+p <- ggbarplot(data.frame(sort(table(MB$Species), decreasing = T)), x = "Var1", y = "Freq", top = 20)
+
+ggpar(p, x.text.angle = 60, font.xtickslab = c(10), 
+      xlab = "Species", ylab = "Genome count")
+
+
+```
+
+
+```{r}
+colnames(gsi) <- c("Pangenome", "New_Taxonomy")
+```
+
+```{r}
+colnames(BCoAT) <- pan_col
+BCoAT <- annotate.taxonomy(BCoAT)
+list <- lapply(split(BCoAT, f = BCoAT$Host), function(x) {
+  x[order(x$With, decreasing = TRUE),]
+})
+tax_rank_palette=c("species"="#A6CEE3", "genus"="#1F78B4", "family"="#33A02C", "order"="#E31A1C")
+```
+
+### Update species names
+```{r}
+HP <- list[[1]]
+
+HP$Print_names <- gsub(x = HP$Lowest_taxonomy, pattern = "s__", replacement = "")
+
+
+
+MP <- list[[2]]
+
+MP_species <- MP[MP$Rank == "species",]
+MP_species$New_Taxonomy <- MP_species$Taxonomy
+MP_species$Print_names <- gsub(x = MP_species$Lowest_taxonomy, pattern = "s__", replacement = "")
+
+MP_nonspecies <- MP[MP$Rank != "species",]
+MP_nonspecies$Pangenome <- gsub(pattern = ".MOUSE", replacement = "", MP_nonspecies$Pangenome)
+MP_nonspecies <- merge(x = MP_nonspecies, y = gsi, by = "Pangenome")
+
+MP_nonspecies$Print_names <- unlist(lapply(strsplit(x = MP_nonspecies$New_Taxonomy, split = ";.__"), 
+       function(x) { x[7] }
+       ))
+
+MP <- rbind(MP_species, MP_nonspecies)
+bcoat_MP <- MP
+```
+
+```{r}
+p <- ggbarplot(HP, x = "Print_names", y = "With", 
+               color = "Rank", fill = "Rank",
+               top = 30, 
+               sort.by.groups = FALSE, 
+               palette = tax_rank_palette,
+               ylab = "Genome count")
+ggpar(p, x.text.angle = 65, font.xtickslab = c(10), legend.title = "Assigned taxonomical rank")
+```
+
+```{r}
+p <- ggbarplot(HP, x = "Print_names", y = "With", 
+               color = "Rank", fill = "Rank",
+               top = 20, 
+               sort.by.groups = FALSE, sort.val = "asc", 
+               palette = tax_rank_palette,
+               ylab = "Genome count")
+p1 <- ggpar(p, font.xtickslab = c(10), ylab = FALSE,
+            legend = "none", legend.title = "Assigned taxonomical rank", 
+            rotate = TRUE)
+p1
+
+ggpar(p, font.xtickslab = c(10), ylab = FALSE,
+            legend = "right", legend.title = "Assigned taxonomical rank", 
+            rotate = TRUE)
+
+# original size 
+#pdf("~/Documents/PhD/Manuscripts/Human_Mouse_comparison/Figure 6 (SCFA)/bcoat_genomes_human.pdf", height = 5.33, width = 7)
+#ggpar(p, font.xtickslab = c(10), ylab = FALSE,
+#            legend = "right", legend.title = "Assigned taxonomical rank", 
+#            rotate = TRUE)
+#dev.off()
+
+# less tall
+##pdf("~/Documents/PhD/Manuscripts/Human_Mouse_comparison/Figure 6 (SCFA)/bcoat_genomes_human.pdf", height = 4, width = 7)
+#ggpar(p, font.xtickslab = c(10), ylab = FALSE,
+#            legend = "right", legend.title = "Assigned taxonomical rank", 
+#            rotate = TRUE)
+#dev.off()
+
+# small
+pdf(paste0(outdir, "bcoat_genomes_human.pdf"), height = 4, width = 9.33)
+ggpar(p, font.xtickslab = c(10), ylab = FALSE,
+            legend = "right", legend.title = "Assigned taxonomical rank", 
+            rotate = TRUE)
+dev.off()
+```
+
+
+```{r}
+p <- ggbarplot(MP, x = "Print_names", y = "With", 
+               color = "Rank", fill = "Rank", 
+               palette = tax_rank_palette,
+               top = 30, 
+               sort.by.groups = FALSE, ylab = "Genome count")
+ggpar(p, x.text.angle = 65, font.xtickslab = c(10), legend.title = "Assigned taxonomical rank")
+```
+
+```{r}
+p <- ggbarplot(MP, x = "Print_names", y = "With", 
+               color = "Rank", fill = "Rank", 
+               palette = tax_rank_palette, sort.val = "asc",
+               top = 20, 
+               sort.by.groups = FALSE, ylab = "Genome count")
+p2 <- ggpar(p, x.text.angle = 65, font.xtickslab = c(10), ylab = FALSE,
+            legend = "right", legend.title = "Assigned taxonomical rank", 
+            rotate = TRUE)
+p2
+
+ggpar(p, font.xtickslab = c(10), ylab = FALSE,
+            legend = "right", legend.title = "Assigned taxonomical rank", 
+            rotate = TRUE)
+
+pdf(paste0(outdir, "bcoat_genomes_mouse.pdf"), height = 4, width = 9.33)
+ggpar(p, font.xtickslab = c(10), ylab = FALSE,
+            legend = "right", legend.title = "Assigned taxonomical rank", 
+            rotate = TRUE)
+dev.off()
+```
+
+```{#r}
+# original size
+pdf("~/Documents/PhD/Manuscripts/Human_Mouse_comparison/Figure 6 (SCFA)/bcoat_genomes_mouse.pdf", height = 5.33, width = 7)
+ggpar(p, font.xtickslab = c(10), ylab = FALSE,
+            legend = "right", legend.title = "Assigned taxonomical rank", 
+            rotate = TRUE)
+dev.off()
+
+# less tall
+pdf("~/Documents/PhD/Manuscripts/Human_Mouse_comparison/Figure 6 (SCFA)/bcoat_genomes_mouse.pdf", height = 4, width = 7)
+ggpar(p, font.xtickslab = c(10), ylab = FALSE,
+            legend = "right", legend.title = "Assigned taxonomical rank", 
+            rotate = TRUE)
+dev.off()
+
+# small
+pdf("~/Documents/PhD/Manuscripts/Human_Mouse_comparison/Figure 6 (SCFA)/bcoat_genomes_mouse-SMALL.pdf", height = 4, width = 9.33)
+ggpar(p, font.xtickslab = c(10), ylab = FALSE,
+            legend = "right", legend.title = "Assigned taxonomical rank", 
+            rotate = TRUE)
+dev.off()
+```
+
+```{r}
+p2 <- ggpar(p, font.xtickslab = c(10), ylab = FALSE,
+            legend = "none", legend.title = "Assigned taxonomical rank", 
+            rotate = TRUE)
+p2
+```
+
+
+```{r}
+ggarrange(p1, p2)
+
+#jpeg("~/Documents/PhD/Manuscripts/Human_Mouse_comparison/Figure 6 (SCFA)/rplot_bcoat.jpg", height = 400, width = 800)
+#ggarrange(p1, p2)
+#dev.off()
+```
+
+
+
+### Genus-level analyses
+```{r}
+HB$Genus <- gsub(x = HB$Genus, pattern = "g__", replacement = "")
+HB$Genus[which(HB$Genus == "")] <- HB$Family[which(HB$Genus == "")]
+```
+
+```{r}
+MB$Genus <- gsub(x = MB$Genus, pattern = "g__", replacement = "")
+MB$Genus[which(MB$Genus == "")] <- MB$Family[which(MB$Genus == "")]
+```
+
+```{r}
+colnames(MB)[1] <- "Pangenome"
+MB_species <- MB[MB$X4 == "species",]
+MB_species$New_Taxonomy <- MB_species$Taxonomy
+MB_species$Print_Genus <- gsub(pattern = "g__", replacement = "", MB_species$Genus)
+
+MB_nonspecies <- MB[MB$X4 != "species",]
+MB_nonspecies <- merge(x = MB_nonspecies, y = gsi, by = "Pangenome")
+MB_nonspecies$Print_Genus <- unlist(lapply(strsplit(MB_nonspecies$New_Taxonomy, split = ";.__"), 
+       function(x) { x[6] }
+))
+
+MB <- rbind(MB_species, MB_nonspecies)
+```
+
+```{r}
+p <- ggbarplot(data.frame(sort(table(HB$Genus), decreasing = TRUE)), x = "Var1", y = "Freq", top = 10, xlab = "Genus", ylab = "Genome count") 
+ggpar(p, x.text.angle = 45)
+
+p <- ggbarplot(data.frame(sort(table(MB$Genus), decreasing = TRUE)), x = "Var1", y = "Freq", top = 10, xlab = "Genus", ylab = "Genome count") 
+ggpar(p, x.text.angle = 45)
+
+p <- ggbarplot(data.frame(sort(table(HB$Genus), decreasing = TRUE)), x = "Var1", y = "Freq", top = 20, xlab = "Genus", ylab = "Genome count") 
+ggpar(p, x.text.angle = 45)
+
+p <- ggbarplot(data.frame(sort(table(MB$Genus), decreasing = TRUE)), x = "Var1", y = "Freq", top = 20, xlab = "Genus", ylab = "Genome count") 
+ggpar(p, x.text.angle = 45)
+```
+
+```{r}
+p <- ggbarplot(data.frame(sort(table(HB$Genus), decreasing = TRUE)), x = "Var1", y = "Freq", 
+               top = 10, 
+               xlab = "Genus", ylab = "Genome count",
+               sort.val = "asc") 
+p1 <- ggpar(p, rotate = TRUE, ylab = FALSE)
+p1
+
+p <- ggbarplot(data.frame(sort(table(MB$Genus), decreasing = TRUE)), x = "Var1", y = "Freq", 
+               top = 10, 
+               xlab = "Genus", ylab = "Genome count",
+               sort.val = "asc") 
+p2 <- ggpar(p, rotate = TRUE, ylab = FALSE)
+p2
+```
+
+```{r}
+ggarrange(p1, p2)
+
+#jpeg("~/Documents/PhD/Manuscripts/Human_Mouse_comparison/Figure 6 (SCFA)/rplot_bcoat_genus.jpg", height = 400, width = 500)
+##ggarrange(p1, p2)
+#dev.off()
+
+pdf(paste0(outdir, "bcoat_genus.pdf"), height = 8, width = 10)
+ggarrange(p1, p2)
+dev.off()
+```
+
+
+# ptb/buk
+
+```{r}
+BCoAT <- read_tsv(file = paste0(indir, "pangenome.IPR023990.out.tsv"), col_names = FALSE)
+buk <- read_tsv(file = paste0(indir, "pangenome.IPR011245.out.tsv"), col_names = FALSE)
+ptb <- read_tsv(file = paste0(indir, "pangenome.IPR014079.out.tsv"), col_names = FALSE)
+```
+
+
+```{r}
+colnames(buk) <- pan_col
+colnames(ptb) <- pan_col
+BUK <- annotate.taxonomy(buk)
+PTB <- annotate.taxonomy(ptb)
+
+ptb.buk <- merge(x = buk, y = ptb, by = "Pangenome", suffixes = c(".buk", ".ptb"))
+
+# all ptb genomes also encode buk (data elsewhere) - this is not reciprocated however.
+ptb.buk$With.min <- apply(X = data.frame(ptb.buk$With.buk, ptb.buk$With.ptb), MARGIN = 1, FUN = min)
+
+list <- lapply(split(ptb.buk, f = ptb.buk$Host.buk), function(x) {
+  x[order(x$With.min, decreasing = TRUE),]
+})
+
+tax_rank_palette=c("species"="#A6CEE3", "genus"="#1F78B4", "family"="#33A02C", "order"="#E31A1C")
+```
+
+
+
+```{r}
+HP <- list[[1]]
+
+HP$Print_names <- gsub(x = HP$Lowest_taxonomy.buk, pattern = "s__", replacement = "")
+
+
+
+MP <- list[[2]]
+
+MP_species <- MP[MP$Rank.buk == "species",]
+MP_species$New_Taxonomy <- MP_species$Taxonomy.buk
+MP_species$Print_names <- gsub(x = MP_species$Lowest_taxonomy.buk, pattern = "s__", replacement = "")
+
+MP_nonspecies <- MP[MP$Rank.buk != "species",]
+MP_nonspecies$Pangenome <- gsub(pattern = ".MOUSE", replacement = "", MP_nonspecies$Pangenome)
+MP_nonspecies <- merge(x = MP_nonspecies, y = gsi, by = "Pangenome")
+
+MP_nonspecies$Print_names <- unlist(lapply(strsplit(x = MP_nonspecies$New_Taxonomy, split = ";.__"), 
+       function(x) { x[7] }
+       ))
+
+MP <- rbind(MP_species, MP_nonspecies)
+MP_ptb <- MP
+```
+
+```{#r}
+MP[which(MP$Print_names == "UBA3282 MMGC_nov_780"),]
+
+MP
+
+
+which(MP$Lowest_taxonomy.buk == "s__UBA3282 MCGC_nov_780")
+
+MP$Lowest_taxonomy.buk == "s__UBA3282 MMGC_nov_780"
+
+grep(MP$Taxonomy.buk, pattern = "MMGC_780")
+```
+
+
+```{#r}
+p <- ggbarplot(HP, x = "Print_names", y = "With", 
+               color = "Rank", fill = "Rank",
+               top = 30, 
+               sort.by.groups = FALSE, 
+               palette = tax_rank_palette,
+               ylab = "Genome count")
+ggpar(p, x.text.angle = 65, font.xtickslab = c(10), legend.title = "Assigned taxonomical rank")
+```
+
+```{r}
+p <- ggbarplot(HP, x = "Print_names", y = "With.min", 
+               color = "Rank.buk", fill = "Rank.buk",
+               top = 20, 
+               sort.by.groups = FALSE, sort.val = "asc", 
+               palette = tax_rank_palette,
+               ylab = "Genome count")
+p1 <- ggpar(p, font.xtickslab = c(10), ylab = FALSE,
+            legend = "none", legend.title = "Assigned taxonomical rank", 
+            rotate = TRUE)
+p1
+
+ggpar(p, font.xtickslab = c(10), ylab = FALSE,
+            legend = "right", legend.title = "Assigned taxonomical rank", 
+            rotate = TRUE)
+```
+
+```{r}
+# original size
+#pdf("~/Documents/PhD/Manuscripts/Human_Mouse_comparison/Figure 6 (SCFA)/ptb_genomes_human.pdf", height = 5.33, width = 7)
+#ggpar(p, font.xtickslab = c(10), ylab = FALSE,
+#            legend = "right", legend.title = "Assigned taxonomical rank", 
+#            rotate = TRUE)
+#dev.off()
+
+# less tall
+#pdf("~/Documents/PhD/Manuscripts/Human_Mouse_comparison/Figure 6 (SCFA)/ptb_genomes_human.pdf", height = 4, width = 7)
+#ggpar(p, font.xtickslab = c(10), ylab = FALSE,
+#            legend = "right", legend.title = "Assigned taxonomical rank", 
+#            rotate = TRUE)
+##dev.off()
+
+# small
+pdf(paste0(outdir,"ptb_genomes_human-SMALL.pdf"), height = 4, width = 9.33)
+ggpar(p, font.xtickslab = c(10), ylab = FALSE,
+            legend = "right", legend.title = "Assigned taxonomical rank", 
+            rotate = TRUE)
+dev.off()
+```
+
+
+```{#r}
+p <- ggbarplot(MP, x = "Print_names", y = "With.min", 
+               color = "Rank.buk", fill = "Rank.buk", 
+               palette = tax_rank_palette,
+               top = 30, 
+               sort.by.groups = FALSE, ylab = "Genome count")
+ggpar(p, x.text.angle = 65, font.xtickslab = c(10), legend.title = "Assigned taxonomical rank")
+```
+
+```{r}
+p <- ggbarplot(MP, x = "Print_names", y = "With.min", 
+               color = "Rank.buk", fill = "Rank.buk", 
+               palette = tax_rank_palette, sort.val = "asc",
+               top = 20, 
+               sort.by.groups = FALSE, ylab = "Genome count")
+p2 <- ggpar(p, x.text.angle = 65, font.xtickslab = c(10), ylab = FALSE,
+            legend = "right", legend.title = "Assigned taxonomical rank", 
+            rotate = TRUE)
+p2
+```
+
+```{r}
+# original size
+#pdf("~/Documents/PhD/Manuscripts/Human_Mouse_comparison/Figure 6 (SCFA)/ptb_genomes_mouse.pdf", height = 5.33, width = 7)
+#ggpar(p, font.xtickslab = c(10), ylab = FALSE,
+#            legend = "right", legend.title = "Assigned taxonomical rank", 
+#            rotate = TRUE)
+#dev.off()
+
+# less tall
+#pdf("~/Documents/PhD/Manuscripts/Human_Mouse_comparison/Figure 6 (SCFA)/ptb_genomes_mouse.pdf", height = 4, width = 7)
+#ggpar(p, font.xtickslab = c(10), ylab = FALSE,
+#            legend = "right", legend.title = "Assigned taxonomical rank", 
+#            rotate = TRUE)
+#dev.off()
+
+# small
+pdf(paste0(outdir, "ptb_genomes_mouse-SMALL.pdf"), height = 4, width = 9.33)
+ggpar(p, font.xtickslab = c(10), ylab = FALSE,
+            legend = "right", legend.title = "Assigned taxonomical rank", 
+            rotate = TRUE)
+dev.off()
+```
+
+```{r}
+p2 <- ggpar(p, font.xtickslab = c(10), ylab = FALSE,
+            legend = "none", legend.title = "Assigned taxonomical rank", 
+            rotate = TRUE)
+p2
+```
+
+
+```{r}
+ggarrange(p1, p2)
+
+#jpeg("~/Documents/PhD/Manuscripts/Human_Mouse_comparison/Figure 6 (SCFA)/rplot_buk-ptb.jpg", height = 400, width = 800)
+#ggarrange(p1, p2)
+#dev.off()
+```
+
+
+
+
+
+```{r}
+colnames(H_ptb)[6] <- "Taxonomy"
+colnames(M_ptb)[6] <- "Taxonomy"
+HB <- annotate.taxonomy(H_ptb)
+MB <- annotate.taxonomy(M_ptb)
+```
+
+```{r}
+colnames(H_buk)[6] <- "Taxonomy"
+colnames(M_buk)[6] <- "Taxonomy"
+HB <- annotate.taxonomy(H_buk)
+MB <- annotate.taxonomy(M_buk)
+```
+
+
+
+# Analyse genomes that encode both ptb and buk
+
+```{r}
+colnames(H_ptb)[1] <- "Genome"
+colnames(M_ptb)[1] <- "Genome"
+
+colnames(H_buk)[1] <- "Genome"
+colnames(M_buk)[1] <- "Genome"
+
+#HB <- annotate.taxonomy(H_buk)
+#MB <- annotate.taxonomy(M_buk)
+
+M_PT <- M_ptb[which(M_ptb$Genome %in% M_buk$Genome),]
+H_PT <- H_ptb[which(H_ptb$Genome %in% H_buk$Genome),]
+
+colnames(H_PT)[6] <- "Taxonomy"
+colnames(M_PT)[6] <- "Taxonomy"
+
+HB <- annotate.taxonomy(H_PT)
+MB <- annotate.taxonomy(M_PT)
+```
+
+
+```{r}
+HB$Genus <- gsub(x = HB$Genus, pattern = "g__", replacement = "")
+HB$Genus[which(HB$Genus == "")] <- HB$Family[which(HB$Genus == "")]
+```
+
+```{r}
+MB$Genus <- gsub(x = MB$Genus, pattern = "g__", replacement = "")
+MB$Genus[which(MB$Genus == "")] <- MB$Family[which(MB$Genus == "")]
+```
+
+```{r}
+colnames(MB)[1] <- "Pangenome"
+MB_species <- MB[MB$X4 == "species",]
+MB_species$New_Taxonomy <- MB_species$Taxonomy
+MB_species$Print_Genus <- gsub(pattern = "g__", replacement = "", MB_species$Genus)
+
+MB_nonspecies <- MB[MB$X4 != "species",]
+MB_nonspecies <- merge(x = MB_nonspecies, y = gsi, by = "Pangenome")
+MB_nonspecies$Print_Genus <- unlist(lapply(strsplit(MB_nonspecies$New_Taxonomy, split = ";.__"), 
+       function(x) { x[6] }
+))
+
+MB <- rbind(MB_species, MB_nonspecies)
+ptb_MB <- MB
+```
+
+```{r}
+p <- ggbarplot(data.frame(sort(table(HB$Genus), decreasing = TRUE)), x = "Var1", y = "Freq", top = 10, xlab = "Genus", ylab = "Genome count") 
+ggpar(p, x.text.angle = 45)
+
+p <- ggbarplot(data.frame(sort(table(MB$Genus), decreasing = TRUE)), x = "Var1", y = "Freq", top = 10, xlab = "Genus", ylab = "Genome count") 
+ggpar(p, x.text.angle = 45)
+
+p <- ggbarplot(data.frame(sort(table(HB$Genus), decreasing = TRUE)), x = "Var1", y = "Freq", top = 20, xlab = "Genus", ylab = "Genome count") 
+ggpar(p, x.text.angle = 45)
+
+p <- ggbarplot(data.frame(sort(table(MB$Genus), decreasing = TRUE)), x = "Var1", y = "Freq", top = 20, xlab = "Genus", ylab = "Genome count") 
+ggpar(p, x.text.angle = 45)
+```
+
+```{r}
+p <- ggbarplot(data.frame(sort(table(HB$Genus), decreasing = TRUE)), x = "Var1", y = "Freq", 
+               top = 10, 
+               xlab = "Genus", ylab = "Genome count",
+               sort.val = "asc") 
+
+p1 <- ggpar(p, rotate = TRUE, ylab = FALSE)
+p1
+
+p <- ggbarplot(data.frame(sort(table(MB$Genus), decreasing = TRUE)), x = "Var1", y = "Freq", 
+               top = 10, 
+               xlab = "Genus", ylab = "Genome count",
+               sort.val = "asc") 
+p2 <- ggpar(p, rotate = TRUE, ylab = FALSE)
+p2
+```
+
+```{r}
+ggarrange(p1, p2)
+
+#jpeg("~/Documents/PhD/Manuscripts/Human_Mouse_comparison/Figure 6 (SCFA)/rplot_buk-ptb_genus.jpg", height = 400, width = 500)
+#ggarrange(p1, p2)
+#dev.off()
+
+pdf(paste0(outdir, "ptb_genus.pdf"), height = 8, width = 10)
+ggarrange(p1, p2)
+dev.off()
+```
+
+
+## Microbiome analyses
+
+```{r}
+# ptb/buk
+MP$ptb.buk.frac <- MP$With.min/MP$With.buk*100
+MP$ptb.buk.frac[is.na(MP$ptb.buk.frac)] <- 0
+pt <- MP[MP$ptb.buk.frac >= 80,]
+
+bcoat_MP$bcoat.frac <- bcoat_MP$With/bcoat_MP$Total*100
+bcoat_MP$bcoat.frac[is.na(bcoat_MP$bcoat.frac)] <- 0
+bcoat <- bcoat_MP[bcoat_MP$bcoat.frac >= 80,]
+```
+
+```{r}
+
+```
+
+
+
+## Core microbiome
+
+
+
+## Fixing microbrobiome analyses..
+
+```{r}
+taxonomy <- read_tsv(file = paste0(indir2,"new_taxonomy.txt"), col_names = F)
+taxonomy$X2 <- gsub(pattern = "MCGC", replacement = "MMGC", x = taxonomy$X2)
+taxonomy <- taxonomy[,2]
+colnames(taxonomy) <- "Taxonomy"
+
+list <- strsplit(taxonomy$Taxonomy, split = ";")
+
+taxonomy$Species <- unlist(lapply(list, function(x) { gsub(x[7], pattern = ".__", replacement = "") }))
+taxonomy$Genus <- unlist(lapply(list, function(x) { gsub(x[6], pattern = ".__", replacement = "") }))
+taxonomy$Family <- unlist(lapply(list, function(x) { gsub(x[5], pattern = ".__", replacement = "") }))
+taxonomy$Order <- unlist(lapply(list, function(x) { gsub(x[4], pattern = ".__", replacement = "") }))
+taxonomy$Class <- unlist(lapply(list, function(x) { gsub(x[3], pattern = ".__", replacement = "") }))
+taxonomy$Phylum <- unlist(lapply(list, function(x) { gsub(x[2], pattern = ".__", replacement = "") }))
+```
+
+
+```{r}
+df_s <- read_tsv(paste0(indir2, "merged_bracken.S.tsv"), col_names = TRUE)
+df_s$Species <- gsub(pattern = "MCGC", replacement = "MMGC", x = df_s$Species)
+df_s$Sample[which(df_s$Sample == "Sample_H2OW0M8_kneaddata")] <- "ERR580905_kneaddata"
+df_s$Species_read_fraction <- df_s$Species_read_fraction*100
+```
+
+
+```{r}
+MAG_samples <- as.character(unlist(read_csv(file = paste0(indir1, "successful_MAG_samples.txt"), col_names = FALSE)))
+length(MAG_samples)
+```
+
+```{r}
+sample_ids <- unlist(lapply(strsplit(unique(df_s$Sample), split = "_"), function(x) { 
+  gsub(pattern = "\\.3", replacement = "", x[1]) 
+  }))
+
+# add sample ids for mgp15975 samples (all of which produced MAGs)
+MAG_samples <- c(MAG_samples, 
+  sample_ids[grep("^C.$|^E.$|^T.$", sample_ids)])
+```
+
+```{r}
+qc_samples <- unique(df_s$Sample)[which(sample_ids %in% MAG_samples)]
+qc_df_s <- df_s[which(df_s$Sample %in% qc_samples),]
+```
+
+
+```{r}
+length(sample_ids)
+length(unique(qc_df_s$Sample))
+```
+
+```{r}
+list <- lapply(split(qc_df_s, f = qc_df_s$Species), function(x) {
+  SPECIES = unique(x$Species)
+  MEAN = mean(x$Species_read_fraction)
+  PREV = length(which(x$Species_read_fraction >= 0.01)) # use >0.01% of reads to define prevalence 
+  PREV_FRAC = PREV / length(unique(qc_df_s$Sample)) * 100
+  MEAN_OF_PREV = mean(x$Species_read_fraction[which(x$Species_read_fraction >= 0.01)])
+  MAX = max(x$Species_read_fraction)
+  
+  data.frame(Species=SPECIES,
+             All_mean=MEAN,
+             Mean_of_frac=MEAN_OF_PREV,
+             Prevalence_count=PREV,
+             Prevalence_frac=PREV_FRAC,
+             Max=MAX)
+})
+
+qc_data_summary <- do.call("rbind", list)
+qc_data_summary <- merge(x = qc_data_summary, y = taxonomy, all.x = TRUE, by = "Species")
+prev_20 <- head(qc_data_summary[order(qc_data_summary$Prevalence_count, decreasing = TRUE),], 20)
+prev_20_data <- qc_df_s[which(qc_df_s$Species %in% prev_20$Species),]
+prev_20_species <- prev_20$Species
+prev_20_data$MCC <- "MAG only"
+prev_20_data$MCC[prev_20_data$Species %in% MCC_species] <- "Isolated in MCC"
+prev_20_data$MCC <- factor(prev_20_data$MCC, levels = c("MAG only", "Isolated in MCC"))
+prev_20$MCC <- "MAG only"
+prev_20$MCC[prev_20$Species %in% MCC_species] <- "Isolated in MCC"
+prev_20$MCC <- factor(prev_20$MCC, levels = c("MAG only", "Isolated in MCC"))
+bold_labels <- rep("plain", 20)
+bold_labels[which(prev_20_species %in% MCC_species)] <- "bold"
+prev_20_data <- merge(x = prev_20_data, y = taxonomy, by = "Species")
+prev_20$'Species cultured in the MCC?'<- ifelse(prev_20$MCC == "MAG only", "No", "Yes")
+
+p1 <- ggline(prev_20_data, x = "Species", y = "Species_read_fraction",
+            plot_type = "p", 
+            order = rev(prev_20_species), 
+            shape = "MCC",
+            #add = "boxplot", 
+            color = "Phylum", fill = "Phylum", palette = phylum_palette)
+p1 <- ggpar(p1, rotate = TRUE, ylab = "% Abundance", legend = "none") +
+  theme(
+    plot.margin = unit(c(1,3,1,3), "mm"),
+    axis.title.y = element_blank(),
+    axis.text.y = element_text(face = rev(bold_labels))
+  )
+
+p2 <- ggline(prev_20, x = "Species", y = "Prevalence_frac",
+             plot_type = "p",
+             order = rev(prev_20_species),
+            color = "Phylum", fill = "Phylum", shape = "Species cultured in the MCC?",
+            palette = phylum_palette)
+p2 <- ggpar(p2, rotate = TRUE, ylab = "% Prevalence", legend = "none") +
+  theme(
+        axis.title.y = element_blank(), 
+        axis.text.y = element_blank(), 
+        axis.ticks.y = element_blank(),
+        axis.line.y = element_blank(),
+        plot.margin = unit(c(1,3,1,3), "mm"),
+        legend.position = "right"
+  ) +
+  labs(shape="Species cultured \nin the MCC?",col="Taxonomic class") #+
+  #scale_y_continuous(breaks=c(92,95,98))#seq(0,100,25))
+
+grid.arrange(p1,p2,ncol=2,widths=c(38/70,22/60))
+```
+
+
+
+
+```{r}
+qc_data_summary$Status[qc_data_summary$Species %in% pt$Print_names] <- "PTB/BUK"
+qc_data_summary$Status[qc_data_summary$Species %in% bcoat$Print_names] <- "BCoAT"
+```
+
+```{r}
+prev_df <- head(qc_data_summary[order(qc_data_summary$Prevalence_count, decreasing = TRUE),], 20)
+mean_df <- head(qc_data_summary[order(qc_data_summary$All_mean, decreasing = TRUE),], 20)
+
+
+```
+
+
+## Prevalence data
+```{r}
+prev_df_s <- qc_df_s[qc_df_s$Species %in% prev_df$Species,]
+levels(prev_df_s$Species) <- prev_df$Species
+
+
+prev_df_s$Status[prev_df_s$Species %in% pt$Print_names] <- "PTB/BUK"
+prev_df_s$Status[prev_df_s$Species %in% bcoat$Print_names] <- "BCoAT"
+
+```
+
+```{r}
+prev_df$Status[is.na(prev_df$Status)] <- "None"
+prev_df_s$Status[is.na(prev_df_s$Status)] <- "None"
+
+#but_palette <- c("BCOAT"="red", "PTB/BUK"="blue", "None"="darkgrey")
+#but_palette <- c("BCoAT"="orange", "PTB/BUK"="purple", "None"="darkgrey")
+## make orange darker
+but_palette <- c("BCoAT"="#e68200",#orange", 
+                 "PTB/BUK"="purple", "None"="darkgrey")
+
+prev_df$Status <- factor(prev_df$Status, levels = c("PTB/BUK", "BCoAT", "None"))
+
+p <- ggline(prev_df_s, x = "Species", y = "Species_read_fraction", 
+       plot_type = "p", order = rev(prev_df$Species),
+       color = "Status", fill = "Status", palette = but_palette,
+       add = "boxplot")
+
+ggpar(p, rotate = TRUE)
+
+
+p2 <- ggdotchart(prev_df, x = "Species", y = "Prevalence_frac", 
+       #order = rev(prev_df$Species),
+       color = "Status", fill = "Status", palette = but_palette,
+       rotate = TRUE, sorting = "desc",
+       ylab = "% Prevalence"
+       ) +
+  theme(
+        axis.title.y = element_blank(), 
+        axis.text.y = element_blank(), 
+        axis.ticks.y = element_blank(),
+        axis.line.y = element_blank(),
+        plot.margin = unit(c(1,3,1,3), "mm"),
+        legend.position = "right",
+        legend.title = element_blank()
+        )
+
+p <- ggline(prev_df_s, x = "Species", y = "Species_read_fraction", 
+       plot_type = "p", order = as.character(p2$data$Species),
+       color = "Status", fill = "Status", palette = but_palette,
+       add = "boxplot")
+
+p1 <- ggpar(p, rotate = TRUE, legend = "none", ylab = "% Abundance") +
+  theme(
+    plot.margin = unit(c(1,3,1,3), "mm"),
+    axis.title.y = element_blank()
+  )
+
+grid.arrange(p1,p2,ncol=2,widths=c(3/5,2/5))
+
+#pdf("~/Documents/PhD/Manuscripts/Human_Mouse_comparison/Figure 6 (SCFA)/terminal_pathway-abun_prev.pdf", height = 4.67, width #= 8)
+#grid.arrange(p1,p2,ncol=2,widths=c(3/5,2/5))
+#dev.off()
+
+# original size
+#pdf("~/Documents/PhD/Manuscripts/Human_Mouse_comparison/Figure 6 (SCFA)/terminal_pathway-abun_prev.pdf", height = 4.67, width #= 7)
+#grid.arrange(p1,p2,ncol=2,widths=c(3/5,2/5))
+#grid.arrange(p1,p2,ncol=2,widths=c(37/60,23/60))
+#dev.off()
+
+# elongate
+pdf(paste0(outdir, "terminal_pathway-abun_prev.pdf"), height = 5.33, width = 7)
+grid.arrange(p1,p2,ncol=2,widths=c(3/5,2/5))
+#grid.arrange(p1,p2,ncol=2,widths=c(37/60,23/60))
+dev.off()
+```
+
+
+## abundance data analyses
+
+```{r}
+abun_20 <- head(qc_data_summary[order(qc_data_summary$All_mean, decreasing = TRUE),], 20)
+abun_20_data <- qc_df_s[which(qc_df_s$Species %in% abun_20$Species),]
+abun_20_species <- abun_20$Species
+
+abun_20_data <- merge(x = abun_20_data, y = taxonomy, by = "Species", all.x = TRUE)
+
+abun_20
+```
+
+```{r}
+abun_20_data$Status[abun_20_data$Species %in% pt$Print_names] <- "PTB/BUK"
+abun_20_data$Status[abun_20_data$Species %in% bcoat$Print_names] <- "BCoAT"
+abun_20_data$Status[is.na(abun_20_data$Status)] <- "None"
+abun_20$Status[is.na(abun_20$Status)] <- "None"
+```
+
+
+```{r}
+p1 <- ggline(abun_20_data, x = "Species", y = "Species_read_fraction",
+            plot_type = "p", 
+            order = rev(abun_20_species),
+            #add = "boxplot", add.params = list(color = "red"),
+            color = "Status", fill = "Status", palette = but_palette)
+p1 <- ggpar(p1, rotate = TRUE, ylab = "% Abundance", legend = "none") +
+  theme(
+    plot.margin = unit(c(1,3,1,3), "mm"),
+    axis.title.y = element_blank()
+  )
+
+p2 <- ggline(abun_20, x = "Species", y = "Prevalence_frac",
+             plot_type = "p",
+             order = rev(abun_20_species),
+            color = "Status", fill = "Status",
+            palette = but_palette)
+p2 <- ggpar(p2, rotate = TRUE, ylab = "% Prevalence", legend = "none") +
+  theme(
+        axis.title.y = element_blank(), 
+        axis.text.y = element_blank(), 
+        axis.ticks.y = element_blank(),
+        axis.line.y = element_blank(),
+        plot.margin = unit(c(1,3,1,3), "mm"),
+        legend.position = "right"
+  )
+
+grid.arrange(p1,p2,ncol=2,widths=c(3/5,2/5))
+
+#jpeg("~/Documents/PhD/Manuscripts/Human_Mouse_comparison/Figure 2/R_plots/rplot-abun_class.jpg", height = 350, width = 600)
+#grid.arrange(p1,p2,ncol=2,widths=c(3/5,2/5))
+#dev.off()
+
+#jpeg("~/Documents/PhD/Manuscripts/Human_Mouse_comparison/Figure 2/R_plots/rplot-abun_class-LEGEND.jpg", height = 350, width = 600)
+#grid.arrange(p1,p2,ncol=2,widths=c(2/5,3/5))
+#dev.off()
+```
+
+
+# Gene summary
+
+```{r}
+buk_MB <- buk[which(buk$Host == "MOUSE" & buk$With/buk$Total >= 0.8),]
+ptb_MB <- ptb[which(ptb$Host == "MOUSE" & ptb$With/ptb$Total >= 0.8),]
+
+MB <- ptb_MB[which(ptb_MB$Pangenome %in% buk_MB$Pangenome),]
+
+MB_tax <- gsi$New_Taxonomy[which(gsi$Pangenome %in% gsub(MB$Pangenome[MB$Rank != "species"], pattern = ".MOUSE", replacement = ""))]
+
+MB_tax <- c(MB_tax, MB$Taxonomy[MB$Rank == "species"])
+
+MB_species <- unlist(lapply(strsplit(MB_tax, split = "__"), function(x) {
+  rev(x)[1]
+}))
+
+ptb_df <- qc_df_s[which(qc_df_s$Species %in% MB_species),]
+ptb_df
+```
+
+```{r}
+bcoat_MB <- bcoat[which(bcoat$Host == "MOUSE" & bcoat$With/bcoat$Total >= 0.8),]
+
+MB <- bcoat_MB
+
+MB_tax <- gsi$New_Taxonomy[which(gsi$Pangenome %in% gsub(MB$Pangenome[MB$Rank != "species"], pattern = ".MOUSE", replacement = ""))]
+
+MB_tax <- c(MB_tax, MB$Taxonomy[MB$Rank == "species"])
+
+MB_species <- unlist(lapply(strsplit(MB_tax, split = "__"), function(x) {
+  rev(x)[1]
+}))
+
+bcoat_df <- qc_df_s[which(qc_df_s$Species %in% MB_species),]
+bcoat_df
+```
+
+```{r}
+any(unique(bcoat_df$Species) %in% unique(ptb_df$Species))
+```
+
+
+```{r}
+bcoat_abundance <- data.frame(bcoat=unlist(lapply(split(bcoat_df, bcoat_df$Sample), function(x) {
+  sum(x$Species_read_fraction)
+})))
+  
+ptb_abundance <- data.frame(ptb=unlist(lapply(split(ptb_df, ptb_df$Sample), function(x) {
+  sum(x$Species_read_fraction)
+})))
+
+summary(bcoat_abundance)
+summary(ptb_abundance)
+```
+
+```{#r}
+# find missing samples
+missing <- row.names(ptb_abundance)[which(!row.names(ptb_abundance) %in% row.names(bcoat_abundance))]
+missing_df <- data.frame(bcoat=rep(0, length(missing)))
+row.names(missing_df) <- missing
+bcoat_abundance <- rbind(bcoat_abundance, missing_df)
+```
+
+```{r}
+# check complete datasets
+any(!row.names(bcoat_abundance) %in% row.names(ptb_abundance))
+```
+
+```{r}
+butyrate_synth <- cbind(bcoat_abundance[order(row.names(bcoat_abundance)),], ptb_abundance[order(row.names(ptb_abundance)),])
+colnames(butyrate_synth) <- c("BCoAT", "PTB/BUK")
+butyrate_synth <- as.data.frame(butyrate_synth)
+butyrate_synth$Sample <- row.names(ptb_abundance)[order(row.names(ptb_abundance))]
+
+#butyrate_synth
+butyrate_synth_df <- melt(butyrate_synth, id.vars = "Sample")
+
+p_box_1 <- ggboxplot(data = butyrate_synth_df, x = "variable", y = "value", 
+          ylab = "Gene-encoding species abundance (% reads)",
+          xlab = FALSE,
+          color = "variable", 
+          palette = but_palette) +
+  stat_compare_means(paired = TRUE, comparisons = list(c("BCoAT", "PTB/BUK")), label = "p.signif")
+
+
+p_box_2 <- ggboxplot(data = butyrate_synth_df, x = "variable", y = "value", 
+          ylab = "Gene-encoding species abundance (% reads)",
+          xlab = FALSE,
+          color = "black",
+          fill = "variable",
+          palette = but_palette) +
+  stat_compare_means(paired = TRUE, comparisons = list(c("BCoAT", "PTB/BUK")), label = "p.signif")
+
+
+ggpar(p_box_1, legend = "right", legend.title = "Terminal pathway")
+
+pdf(paste0(outdir, "terminal_pathway_comparison-box_colour.pdf"), height = 3, width = 5.2)
+ggpar(p_box_1, legend = "right", legend.title = "Terminal pathway")
+dev.off()
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+taxonomy <- unique(new_tax[,4])
+colnames(taxonomy) <- "Taxonomy"
+
+taxonomy$Species <- unlist(lapply(strsplit(taxonomy$Taxonomy, split = ";"), function(x) {
+  gsub(x[7], pattern = "s__", replacement = "") 
+}))
+
+taxonomy$Genus <- unlist(lapply(strsplit(taxonomy$Taxonomy, split = ";"), function(x) {
+  gsub(x[6], pattern = "g__", replacement = "") 
+}))
+
+taxonomy$Family <- unlist(lapply(strsplit(taxonomy$Taxonomy, split = ";"), function(x) {
+  gsub(x[5], pattern = "f__", replacement = "") 
+}))
+
+taxonomy$Class <- unlist(lapply(strsplit(taxonomy$Taxonomy, split = ";"), function(x) {
+  gsub(x[3], pattern = "c__", replacement = "") 
+}))
+
+df_s <- merge(x = df_s, y = taxonomy, by = "Species", all.x = TRUE)
+```
+
+```{r}
+list <- lapply(split(df_s, f = df_s$Species), function(x) {
+  SPECIES = unique(x$Species)
+  MEAN = mean(x$Species_read_fraction)
+  PREV = length(which(x$Species_read_fraction >= 0.01))
+  PREV_FRAC = PREV / length(unique(df_s$Sample)) * 100
+  MEAN_OF_PREV = mean(x$Species_read_fraction[which(x$Species_read_fraction >= 0.01)])
+  MAX = max(x$Species_read_fraction)
+  
+  data.frame(Species=SPECIES,
+             All_mean=MEAN,
+             Mean_of_frac=MEAN_OF_PREV,
+             Prevalence_count=PREV,
+             Prevalence_frac=PREV_FRAC,
+             Max=MAX)
+})
+
+data_summary <- do.call("rbind", list)
+
+data_summary <- merge(x = data_summary, y = taxonomy, by = "Species")
+```
+
+```{r}
+data_summary$Status[data_summary$Species %in% pt$Print_names] <- "PTB/BUK"
+data_summary$Status[data_summary$Species %in% bcoat$Print_names] <- "BCoAT"
+```
+
+```{r}
+prev_df <- head(data_summary[order(data_summary$Prevalence_count, decreasing = TRUE),], 20)
+mean_df <- head(data_summary[order(data_summary$All_mean, decreasing = TRUE),], 20)
+
+
+```
+
+
+## Prevalence data
+```{r}
+prev_df_s <- df_s[df_s$Species %in% prev_df$Species,]
+levels(prev_df_s$Species) <- prev_df$Species
+
+prev_df_s$Status[prev_df_s$Species %in% pt$Print_names] <- "PTB/BUK"
+prev_df_s$Status[prev_df_s$Species %in% bcoat$Print_names] <- "BCoAT"
+
+```
+
+```{r}
+prev_df$Status[is.na(prev_df$Status)] <- "None"
+prev_df_s$Status[is.na(prev_df_s$Status)] <- "None"
+
+#but_palette <- c("BCOAT"="red", "PTB/BUK"="blue", "None"="darkgrey")
+#but_palette <- c("BCoAT"="orange", "PTB/BUK"="purple", "None"="darkgrey")
+## make orange darker
+but_palette <- c("BCoAT"="#e68200",#orange", 
+                 "PTB/BUK"="purple", "None"="darkgrey")
+
+prev_df$Status <- factor(prev_df$Status, levels = c("PTB/BUK", "BCoAT", "None"))
+
+p <- ggline(prev_df_s, x = "Species", y = "Species_read_fraction", 
+       plot_type = "p", order = rev(prev_df$Species),
+       color = "Status", fill = "Status", palette = but_palette,
+       add = "boxplot")
+
+ggpar(p, rotate = TRUE)
+
+
+p2 <- ggdotchart(prev_df, x = "Species", y = "Prevalence_frac", 
+       #order = rev(prev_df$Species),
+       color = "Status", fill = "Status", palette = but_palette,
+       rotate = TRUE, sorting = "desc",
+       ylab = "% Prevalence"
+       ) +
+  theme(
+        axis.title.y = element_blank(), 
+        axis.text.y = element_blank(), 
+        axis.ticks.y = element_blank(),
+        axis.line.y = element_blank(),
+        plot.margin = unit(c(1,3,1,3), "mm"),
+        legend.position = "right",
+        legend.title = element_blank()
+        )
+
+p <- ggline(prev_df_s, x = "Species", y = "Species_read_fraction", 
+       plot_type = "p", order = as.character(p2$data$Species),
+       color = "Status", fill = "Status", palette = but_palette,
+       add = "boxplot")
+
+p1 <- ggpar(p, rotate = TRUE, legend = "none", ylab = "% Abundance") +
+  theme(
+    plot.margin = unit(c(1,3,1,3), "mm"),
+    axis.title.y = element_blank()
+  )
+
+grid.arrange(p1,p2,ncol=2,widths=c(3/5,2/5))
+
+#pdf("~/Documents/PhD/Manuscripts/Human_Mouse_comparison/Figure 6 (SCFA)/terminal_pathway-abun_prev.pdf", height = 4.67, width #= 8)
+#grid.arrange(p1,p2,ncol=2,widths=c(3/5,2/5))
+#dev.off()
+
+# original size
+#pdf("~/Documents/PhD/Manuscripts/Human_Mouse_comparison/Figure 6 (SCFA)/terminal_pathway-abun_prev.pdf", height = 4.67, width #= 7)
+#grid.arrange(p1,p2,ncol=2,widths=c(3/5,2/5))
+#grid.arrange(p1,p2,ncol=2,widths=c(37/60,23/60))
+#dev.off()
+
+# elongate
+pdf(paste0(outdir, "terminal_pathway-abun_prev.pdf"), height = 5.33, width = 7)
+grid.arrange(p1,p2,ncol=2,widths=c(3/5,2/5))
+#grid.arrange(p1,p2,ncol=2,widths=c(37/60,23/60))
+dev.off()
+```
+
+## Abundance data
+```{r}
+mean_df_s <- df_s[df_s$Species %in% mean_df$Species,]
+levels(mean_df_s$Species) <- mean_df$Species
+
+mean_df_s$Status[mean_df_s$Species %in% pt$Print_names] <- "PTB/BUK"
+mean_df_s$Status[mean_df_s$Species %in% bcoat$Print_names] <- "BCOAT"
+```
+
+```{r}
+p <- ggline(mean_df_s, x = "Species", y = "Species_read_fraction", 
+       plot_type = "p", order = rev(mean_df$Species),
+       color = "Status", fill = "Status",
+       add = "boxplot")
+
+ggpar(p, rotate = TRUE)
+
+
+```
+
+## Butyrate metabolisers
+```{r}
+data_summary_butyrate <- data_summary[which(!(is.na(data_summary$Status))),]
+```
+
+```{r}
+prev_df <- head(data_summary_butyrate[order(data_summary_butyrate$Prevalence_count, decreasing = TRUE),], 20)
+mean_df <- head(data_summary_butyrate[order(data_summary_butyrate$All_mean, decreasing = TRUE),], 20)
+
+
+```
+
+
+## Prevalence data
+```{r}
+prev_df_s <- df_s[df_s$Species %in% prev_df$Species,]
+levels(prev_df_s$Species) <- prev_df$Species
+
+prev_df_s$Status[prev_df_s$Species %in% pt$Print_names] <- "PTB/BUK"
+prev_df_s$Status[prev_df_s$Species %in% bcoat$Print_names] <- "BCOAT"
+```
+
+```{r}
+p <- ggline(prev_df_s, x = "Species", y = "Species_read_fraction", 
+       plot_type = "p", order = rev(prev_df$Species),
+       color = "Status", fill = "Status", palette = "npg",
+       add = "boxplot")
+
+p1 <- ggpar(p, rotate = TRUE, legend = "none", ylab = "% Abundance") +
+  theme(
+    plot.margin = unit(c(1,3,1,3), "mm"),
+    axis.title.y = element_blank()
+  )
+
+p2 <- ggdotchart(prev_df, x = "Species", y = "Prevalence_frac", 
+       order = rev(prev_df$Species),
+       color = "Status", fill = "Status", palette = "npg",
+       rotate = TRUE, sorting = "desc",
+       ylab = "% Prevalence"
+       ) +
+  theme(
+        axis.title.y = element_blank(), 
+        axis.text.y = element_blank(), 
+        axis.ticks.y = element_blank(),
+        axis.line.y = element_blank(),
+        plot.margin = unit(c(1,3,1,3), "mm"),
+        legend.position = "right"
+  )
+
+grid.arrange(p1,p2,ncol=2,widths=c(3/5,2/5))
+```
+
+## Abundance data
+```{r}
+mean_df_s <- df_s[df_s$Species %in% mean_df$Species,]
+levels(mean_df_s$Species) <- mean_df$Species
+
+mean_df_s$Status[mean_df_s$Species %in% pt$Print_names] <- "PTB/BUK"
+mean_df_s$Status[mean_df_s$Species %in% bcoat$Print_names] <- "BCOAT"
+```
+
+```{r}
+p <- ggline(mean_df_s, x = "Species", y = "Species_read_fraction", 
+       plot_type = "p", order = rev(mean_df$Species),
+       color = "Status", fill = "Status", palette = "npg",
+       add = "boxplot")
+
+ggpar(p, rotate = TRUE)
+
+p <- ggline(mean_df_s, x = "Species", y = "Species_read_fraction", 
+       plot_type = "p", order = rev(mean_df$Species),
+       color = "Status", fill = "Status", palette = "npg",
+       add = "boxplot")
+
+p1 <- ggpar(p, rotate = TRUE, legend = "none") +
+  theme(
+    plot.margin = unit(c(1,3,1,3), "mm"),
+    axis.title.y = element_blank()
+  )
+
+p1
+```
+
+
+```{#r}
+p <- ggdotchart(head(data_summary[order(data_summary$Prevalence_count, decreasing = TRUE),], 20), 
+          x = "Species", y = "Prevalence_frac",
+          color = "Status", fill = "Status",
+          palette = "npg",
+          sorting = "desc",
+          rotate = TRUE)
+p
+ggpar(p)
+
+p2 <- ggdotchart(prev_20, x = "Species", y = "Prevalence_frac", 
+                 rotate = TRUE, 
+                 sorting = "asc", 
+                 ylab = "% Prevalence") +
+  theme(
+        axis.title.y = element_blank(), 
+        axis.text.y = element_blank(), 
+        axis.ticks.y = element_blank(),
+        axis.line.y = element_blank(),
+        plot.margin = unit(c(1,3,1,3), "mm")
+  )
+p2
+```
+
+```{r}
+p <- ggdotchart(head(data_summary[order(data_summary$All_mean, decreasing = TRUE),], 20), 
+          x = "Species", y = "Prevalence_frac",
+          color = "Status", fill = "Status",
+          palette = "npg",
+          sorting = "desc",
+          rotate = TRUE)
+p
+```
+
+
+## get MCC data
+
+```{r}
+MCC <- read_tsv("~/Documents/PhD/Manuscripts/MCGC_18075/MMGC_Supplement/MCC_genome_summary_WREPS.tsv", col_names = FALSE)
+MCC_i <- MCC[,c(1,15)]
+MCC_i$Species <- unlist(lapply(strsplit(MCC_i$X15, split = ";"), function(x) { x[7] }))
+MCC_i
+```
+
+
+```{r}
+MP_bcoat <- bcoat_MP[order(bcoat_MP$With, decreasing = TRUE),]
+MP_ptb
+MP_bcoat
+```
+
+```{r}
+which(MP_ptb$Lowest_taxonomy.buk %in% MCC_i$Species)
+which(MP_bcoat$Lowest_taxonomy %in% MCC_i$Species)
+which(MP_bcoat$Print_names %in% gsub(pattern = "s__", replacement = "", MCC_i$Species))
+
+
+
+```
+
+```{r}
+MCC_i[which(MCC_i$Species == MP_ptb$Lowest_taxonomy.buk[8]),]
+MCC_i
+```
+
+```{r}
+
+MP_bcoat[which(MP_bcoat$Print_names == "TF01-11 MMGC_nov_297"),]
+```
+
+```{r}
+MP_ptb
+ptb_MB
+```
+
+### ptb
+```{r}
+get.ptb <- function(genid) {
+  species_name <- MCC_i$Species[which(MCC_i$X1 == genid)] %>% 
+    gsub(pattern = "s__", replacement = "") %>% 
+    gsub(pattern = "MCGC", replacement = "MMGC")
+
+  MP_ptb[which(MP_ptb$Print_names == species_name),]
+}
+```
+
+```{r}
+get.ptb("24141_1#42")
+get.ptb("24141_1#40")
+```
+
+
+
+```{r}
+sort(table(ptb_MB$New_Taxonomy), decreasing = TRUE)
+```
+
+
+```{r}
+M_ptb <- read_tsv(file = paste0(indir, "mouse.IPR014079.taxonomy.out.tsv"), col_names = F)
+M_buk <- read_tsv(file = paste0(indir, "mouse.IPR011245.taxonomy.out.tsv"), col_names = F)
+
+M_tmp <- M_ptb[M_ptb$X1 %in% M_buk$X1,]
+colnames(M_tmp)[c(1,2)] <- c("Gen_id", "OG_Species")
+colnames(new_tax) <- c("Path", "Gen_id", "Tax_id", "New_taxonomy")
+ptb.buk <- merge(x = M_tmp, y = new_tax, by = "Gen_id", all.x = TRUE)
+```
+
+```{r}
+ptb.buk$Species <- unlist(lapply(strsplit(ptb.buk$New_taxonomy, split = ";"), function(x) { x[7] }))
+```
+
+```{r}
+ptb_final <- sort(table(ptb.buk$Species), decreasing = TRUE)
+
+
+```
+
+```{r}
+MCC_i$Species <- gsub(pattern = "MCGC", replacement = "MMGC", MCC_i$Species)
+```
+
+```{r}
+MCC_i[which(MCC_i$Species %in% names(ptb_final)),c(1,3)]
+```
+
+```{r}
+ptb_final[which(names(ptb_final) %in% MCC_i$Species)]
+```
+
+```{r}
+ptb_MCC <- MCC_i$Species[which(MCC_i$Species %in% names(ptb_final))] %>% gsub(pattern = "s__", replacement = "")
+qc_data_summary[which(qc_data_summary$Species %in% ptb_MCC),]
+```
+
+
+### bcoat
+```{r}
+M_BCoAT <- read_tsv(file = paste0(indir, "mouse.IPR023990.taxonomy.out.tsv"), col_names = F)
+
+colnames(M_BCoAT)[c(1,2)] <- c("Gen_id", "OG_Species")
+bcoat <- merge(x = M_BCoAT, y = new_tax, by = "Gen_id", all.x = TRUE)
+```
+
+```{r}
+bcoat$Species <- unlist(lapply(strsplit(bcoat$New_taxonomy, split = ";"), function(x) { x[7] }))
+```
+
+```{r}
+bcoat_final <- sort(table(bcoat$Species), decreasing = TRUE)
+bcoat[,c(1,10)]
+```
+
+```{r}
+MCC_i[which(MCC_i$Species %in% names(bcoat_final)),c(1,3)]
+```
+
+```{r}
+bcoat_final[which(names(bcoat_final) %in% MCC_i$Species)]
+```
+
+```{r}
+MCC_i[MCC_i$Species == "s__TF01-11 MMGC_nov_297",]
+bcoat
+```
+
+```{r}
+list <- lapply(split(qc_df_s, f = qc_df_s$Species), function(x) {
+  SPECIES = unique(x$Species)
+  MEAN = mean(x$Species_read_fraction)
+  PREV = length(which(x$Species_read_fraction >= 0.01)) # use >0.01% of reads to define prevalence 
+  PREV_FRAC = PREV / length(unique(qc_df_s$Sample)) * 100
+  MEAN_OF_PREV = mean(x$Species_read_fraction[which(x$Species_read_fraction >= 0.01)])
+  MAX = max(x$Species_read_fraction)
+  
+  data.frame(Species=SPECIES,
+             All_mean=MEAN,
+             Mean_of_frac=MEAN_OF_PREV,
+             Prevalence_count=PREV,
+             Prevalence_frac=PREV_FRAC,
+             Max=MAX)
+})
+
+qc_data_summary <- do.call("rbind", list)
+qc_data_summary <- merge(x = qc_data_summary, y = taxonomy, all.x = TRUE, by = "Species")
+```
+
+
+```{r}
+MCC_i[which(MCC_i$Species %in% names(bcoat_final)),c(1,3)]
+```
+
+```{r}
+bcoat_final[which(names(bcoat_final) %in% MCC_i$Species)]
+```
+
+```{r}
+bcoat_MCC <- MCC_i$Species[which(MCC_i$Species %in% names(bcoat_final))] %>% gsub(pattern = "s__", replacement = "")
+qc_data_summary[which(qc_data_summary$Species %in% bcoat_MCC),]
+```
+
+```{r}
+qc_data_summary[which(qc_data_summary$Species == "Lachnospiraceae_NOV MMGC_nov_115"),]
+any(ptb_MCC == "Lachnospiraceae_NOV MMGC_nov_115")
+any(bcoat_MCC == "Lachnospiraceae_NOV MMGC_nov_115")
+```
+
