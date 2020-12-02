@@ -46,11 +46,11 @@ Please read on for a detailed over-view of each directory. More specific informa
 
 
 
-## `src` directory
+## `src/`
 
 The _src_ directory contains four sub-directories organised to reflect different stages in this project. 
 
-### 1-build-MAGs/
+### `1-build-MAGs/`
 
 This directory includes the custom MAG building pipeline that leverages MetaWRAP to get the best quality bins out of single samples. In addition it also contains QC and taxonomy pipelines/scripts.
 
@@ -133,7 +133,9 @@ __Notes:__
 * the remaining files are part of the `MAG_pipeline.sh` pipeline
 
 
-### 2-build-protein-catalogues/
+
+
+### `2-build-protein-catalogues/`
 
 This directory includes the scripts to build the protein catalogues.
 
