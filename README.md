@@ -57,7 +57,7 @@ This directory includes the custom MAG building pipeline that leverages MetaWRAP
 #### `MAG_pipeline.sh`
 Build metagenome-assembled genomes quickly and easily from shotgun metagenomes.
 
-__Requirements__
+__Requirements:__
 * KneadData (tested v0.7.3)
 * MetaWRAP (tested v1.2.3)
 * GTDBT-Tk v1.3.0 r95
@@ -99,7 +99,7 @@ __Notes:__
 #### `QC_TAX_pipeline.sh`
 Runs CheckM on genomes and returns QC outcomes, before running GTDB-Tk classifier.
 
-__Requirements__
+__Requirements:__
 * CheckM v1.1.2
 * GTDBT-Tk v1.3.0 r95
 
@@ -142,7 +142,7 @@ This directory includes the scripts to build the protein catalogues.
 #### `mmseqs_wf_bsub.sh`
 Build protein cluster databases from concatenated protein sequence file.
 
-__Requirements__
+__Requirements:__
 * mmseqs2 (tested with v10.6d92c--h2d02072_0)
 * bsub.py v0.42.1
 
