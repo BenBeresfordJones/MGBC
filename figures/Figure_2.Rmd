@@ -1,0 +1,2992 @@
+---
+title: "Figure 2"
+author: "Benjamin Beresford-Jones"
+date: "05/09/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(readr)
+library(ggpubr)
+library(reshape2)
+library(grid)
+library(gridExtra)
+#library(phyloseq)
+library(vegan)
+library(ggplot2)
+library(zCompositions)
+#library(ComplexHeatmap)
+library(circlize)
+library(RColorBrewer)
+library(ggbiplot)
+library(superheat)
+library(pheatmap)
+library(magrittr)
+library(Maaslin2)
+```
+
+### Set defaults
+```{r}
+# out path for Rplots
+indir <- "~/Documents/PhD/Manuscripts/MCGC_18075/Figure_2/data/"
+indir1 <- "~/Documents/PhD/Manuscripts/MCGC_18075/Figure_1/data/"
+outdir <- "~/Documents/PhD/Manuscripts/MCGC_18075/Figure_2/"
+set.seed(0)
+```
+
+```{r}
+class_palette <- c(Actinobacteria="#80b1d3",
+                   Alphaproteobacteria="#ccebc5",
+                   Bacilli_A="#d9d9d9",
+                   Bacilli="#ffed6f",
+                   Bacteroidia="#b3de69",
+                   Campylobacteria="#8dd3c7",
+                   Clostridia="#fb8072",
+                   Coriobacteriia="#AED6F1",
+                   Deferribacteres="#ffffb3",
+                   Desulfovibrionia="#fdb462",
+                   Gammaproteobacteria="#bc80bd",
+                   Vampirovibrionia="#E6B0AA",
+                   Verrucomicrobiae="#bebada")
+
+phylum_palette <- c(Actinobacteriota="#80b1d3",
+                    Bacteroidota="#b3de69",
+                    Campylobacterota="#8dd3c7", 
+                    Cyanobacteria="#ffe16f", 
+                    Deferribacterota="#f9ffb3",
+                    Desulfobacterota="#fdb462", 
+                    Elusimicrobiota="#AED6F1",
+                    Firmicutes="#FFC2B8",
+                    Firmicutes_A="#fb8072",
+                    Firmicutes_B="#c43b3b",
+                    Firmicutes_C="#882210",
+                    Proteobacteria="#bc80bd",  
+                    Spirochaetota="#1aa142",
+                    Thermotogota="#ccebc5", 
+                    Verrucomicrobiota="#E6CAE8")
+
+col_HUMAN <- "#0073C2FF"
+col_MOUSE <- "#FFC800"
+#efb800
+```
+
+
+## Load data
+
+```{r}
+# species-level bracken analyses
+df_s <- read_tsv(paste0(indir, "merged_bracken.S.tsv"), col_names = TRUE)
+
+# species taxonomies
+taxonomy <- read_tsv(file = paste0(indir,"new_taxonomy.txt"), col_names = F)
+
+# MCC cultured species data
+MCC_index <- read_tsv(file = paste0(indir, "MCC_genome_summary_POST-DREP999.tsv"), col_names = FALSE)
+MCC_species <- unique(unlist(lapply(strsplit(MCC_index$X19, split = ";.__"), function(x) { x[7] })))
+
+# sample metadata
+metadata_1926 <- read_csv(file = "~/Documents/PhD/Manuscripts/MCGC_18075/Figure_2/data/metagenome_metadata.csv")
+#metadata_488 <- read_csv(file = "~/Documents/PhD/Metagenome_metadata/Metagenome_metadata.csv", col_names = TRUE)
+#df_s_488 <- read_tsv(file = "~/Documents/PhD/Bracken_analysis/merged_bracken.S.tsv", col_names = TRUE)
+```
+
+## Change MCGC to MMGC.
+```{r}
+taxonomy$X2 <- gsub(pattern = "MCGC", replacement = "MMGC", x = taxonomy$X2)
+df_s$Species <- gsub(pattern = "MCGC", replacement = "MMGC", x = df_s$Species)
+MCC_index$X15 <- gsub(pattern = "MCGC", replacement = "MMGC", x = MCC_index$X15)
+MCC_index$X17 <- gsub(pattern = "MCGC", replacement = "MMGC", x = MCC_index$X17)
+MCC_index$X19 <- gsub(pattern = "MCGC", replacement = "MMGC", x = MCC_index$X19)
+MCC_species <- gsub(pattern = "MCGC", replacement = "MMGC", x = MCC_species)
+```
+
+
+
+### Fix names of bracken files
+```{r}
+df_s$Sample[which(df_s$Sample == "Sample_H2OW0M8_kneaddata")] <- "ERR580905_kneaddata"
+```
+
+```{r}
+#metadata_1926
+```
+
+
+## Figure 2a
+
+```{r}
+df_s$Species_read_fraction <- df_s$Species_read_fraction*100
+
+```
+
+```{r}
+taxonomy <- taxonomy[,2]
+colnames(taxonomy) <- "Taxonomy"
+
+list <- strsplit(taxonomy$Taxonomy, split = ";")
+
+taxonomy$Species <- unlist(lapply(list, function(x) { gsub(x[7], pattern = ".__", replacement = "") }))
+taxonomy$Genus <- unlist(lapply(list, function(x) { gsub(x[6], pattern = ".__", replacement = "") }))
+taxonomy$Family <- unlist(lapply(list, function(x) { gsub(x[5], pattern = ".__", replacement = "") }))
+taxonomy$Order <- unlist(lapply(list, function(x) { gsub(x[4], pattern = ".__", replacement = "") }))
+taxonomy$Class <- unlist(lapply(list, function(x) { gsub(x[3], pattern = ".__", replacement = "") }))
+taxonomy$Phylum <- unlist(lapply(list, function(x) { gsub(x[2], pattern = ".__", replacement = "") }))
+
+```
+
+
+## prevalence @ 0.01
+
+```{r}
+# generate summary data for each species
+list <- lapply(split(df_s, f = df_s$Species), function(x) {
+  SPECIES = unique(x$Species)
+  MEAN = mean(x$Species_read_fraction)
+  PREV = length(which(x$Species_read_fraction >= 0.01)) # use >0.01% of reads to define prevalence 
+  PREV_FRAC = PREV / length(unique(df_s$Sample)) * 100
+  MEAN_OF_PREV = mean(x$Species_read_fraction[which(x$Species_read_fraction >= 0.01)])
+  MAX = max(x$Species_read_fraction)
+  
+  data.frame(Species=SPECIES,
+             All_mean=MEAN,
+             Mean_of_frac=MEAN_OF_PREV,
+             Prevalence_count=PREV,
+             Prevalence_frac=PREV_FRAC,
+             Max=MAX)
+})
+
+data_summary <- do.call("rbind", list)
+
+data_summary <- merge(x = data_summary, y = taxonomy, by = "Species")
+```
+
+```{r}
+mouse_bt4096
+data_summary[data_summary$Species %in% mouse_bt4096$Species,]
+```
+
+
+```{r}
+p <- ggscatter(data_summary, x = "Prevalence_frac", y = "All_mean", 
+               color = "Phylum", fill = "Phylum",
+               palette = phylum_palette)
+ggpar(p, yscale = "log10")
+```
+
+
+# Most prevalent species
+
+```{r}
+prev_20 <- head(data_summary[order(data_summary$Prevalence_count, decreasing = TRUE),], 20)
+prev_20_data <- df_s[which(df_s$Species %in% prev_20$Species),]
+prev_20_species <- prev_20$Species
+```
+
+```{r}
+p1 <- ggline(prev_20_data, x = "Species", y = "Species_read_fraction",
+            plot_type = "p", 
+            order = rev(prev_20_species),
+            add = "boxplot", add.params = list(color = "red"))
+p1 <- ggpar(p1, rotate = TRUE, ylab = "% Abundance") +
+  theme(
+    plot.margin = unit(c(1,3,1,3), "mm"),
+    axis.title.y = element_blank()
+  )
+
+p2 <- ggdotchart(prev_20, x = "Species", y = "Prevalence_frac", 
+                 rotate = TRUE, 
+                 sorting = "desc", 
+                 ylab = "% Prevalence") +
+  theme(
+        axis.title.y = element_blank(), 
+        axis.text.y = element_blank(), 
+        axis.ticks.y = element_blank(),
+        axis.line.y = element_blank(),
+        plot.margin = unit(c(1,3,1,3), "mm")
+  )
+
+grid.arrange(p1,p2,ncol=2,widths=c(4/5,1/5),
+             top = textGrob("Most prevalent species"))
+
+#jpeg("~/Documents/PhD/Manuscripts/Human_Mouse_comparison/Figure 2/R_plots/rplot_1-prev.jpg", height = 350, width = 600)
+#grid.arrange(p1,p2,ncol=2,widths=c(4/5,1/5))
+#dev.off()
+```
+
+
+```{#r}
+MCC_shapes <- ifelse(prev_20_species %in% MCC_species, 17, 16)
+names(MCC_shapes) <- prev_20_species
+```
+
+```{r}
+prev_20_data$MCC <- "MAG only"
+prev_20_data$MCC[prev_20_data$Species %in% MCC_species] <- "Isolated in MCC"
+prev_20_data$MCC <- factor(prev_20_data$MCC, levels = c("MAG only", "Isolated in MCC"))
+
+prev_20$MCC <- "MAG only"
+prev_20$MCC[prev_20$Species %in% MCC_species] <- "Isolated in MCC"
+prev_20$MCC <- factor(prev_20$MCC, levels = c("MAG only", "Isolated in MCC"))
+
+bold_labels <- rep("plain", 20)
+bold_labels[which(prev_20_species %in% MCC_species)] <- "bold"
+```
+
+```{r}
+prev_20_data <- merge(x = prev_20_data, y = taxonomy, by = "Species")
+prev_20$'Species cultured in the MCC?'<- ifelse(prev_20$MCC == "MAG only", "No", "Yes")
+```
+
+```{#r}
+p1 <- ggline(prev_20_data, x = "Species", y = "Species_read_fraction",
+            plot_type = "p", 
+            order = rev(prev_20_species), 
+            shape = "MCC",
+            #add = "boxplot", 
+            color = "Phylum", fill = "Phylum", palette = phylum_palette)
+p1 <- ggpar(p1, rotate = TRUE, ylab = "% Abundance", legend = "none") +
+  theme(
+    plot.margin = unit(c(1,3,1,3), "mm"),
+    axis.title.y = element_blank(),
+    axis.text.y = element_text(face = rev(bold_labels))
+  )
+
+p2 <- ggline(prev_20, x = "Species", y = "Prevalence_frac",
+             plot_type = "p",
+             order = rev(prev_20_species),
+            color = "Phylum", fill = "Phylum", shape = "Species cultured in the MCC?",
+            palette = phylum_palette)
+p2 <- ggpar(p2, rotate = TRUE, ylab = "% Prevalence", legend = "none") +
+  theme(
+        axis.title.y = element_blank(), 
+        axis.text.y = element_blank(), 
+        axis.ticks.y = element_blank(),
+        axis.line.y = element_blank(),
+        plot.margin = unit(c(1,3,1,3), "mm"),
+        legend.position = "right"
+  ) +
+  labs(shape="Species cultured \nin the MCC?",col="Taxonomic class") +
+  scale_y_continuous(breaks=c(92,95,98))#seq(0,100,25))
+
+grid.arrange(p1,p2,ncol=2,widths=c(38/70,22/60))
+
+#pdf(paste0(outdir, "top20_prevalence.pdf"), height = 4.67, width = 8)
+#grid.arrange(p1,p2,ncol=2,widths=c(38/70,22/60))
+#dev.off()
+```
+
+```{r}
+plot.top20prev <- function(prevalence) {
+
+# generate summary data for each species
+list <- lapply(split(df_s, f = df_s$Species), function(x) {
+  SPECIES = unique(x$Species)
+  MEAN = mean(x$Species_read_fraction)
+  PREV = length(which(x$Species_read_fraction >= prevalence)) # use >0.01% of reads to define prevalence 
+  PREV_FRAC = PREV / length(unique(df_s$Sample)) * 100
+  MEAN_OF_PREV = mean(x$Species_read_fraction[which(x$Species_read_fraction >= prevalence)])
+  MAX = max(x$Species_read_fraction)
+  
+  data.frame(Species=SPECIES,
+             All_mean=MEAN,
+             Mean_of_frac=MEAN_OF_PREV,
+             Prevalence_count=PREV,
+             Prevalence_frac=PREV_FRAC,
+             Max=MAX)
+})
+
+data_summary <- do.call("rbind", list)
+data_summary <- merge(x = data_summary, y = taxonomy, by = "Species")
+prev_20 <- head(data_summary[order(data_summary$Prevalence_count, decreasing = TRUE),], 20)
+prev_20_data <- df_s[which(df_s$Species %in% prev_20$Species),]
+prev_20_species <- prev_20$Species
+prev_20_data$MCC <- "MAG only"
+prev_20_data$MCC[prev_20_data$Species %in% MCC_species] <- "Isolated in MCC"
+prev_20_data$MCC <- factor(prev_20_data$MCC, levels = c("MAG only", "Isolated in MCC"))
+prev_20$MCC <- "MAG only"
+prev_20$MCC[prev_20$Species %in% MCC_species] <- "Isolated in MCC"
+prev_20$MCC <- factor(prev_20$MCC, levels = c("MAG only", "Isolated in MCC"))
+bold_labels <- rep("plain", 20)
+bold_labels[which(prev_20_species %in% MCC_species)] <- "bold"
+prev_20_data <- merge(x = prev_20_data, y = taxonomy, by = "Species")
+prev_20$'Species cultured in the MCC?'<- ifelse(prev_20$MCC == "MAG only", "No", "Yes")
+
+p1 <- ggline(prev_20_data, x = "Species", y = "Species_read_fraction",
+            plot_type = "p", 
+            order = rev(prev_20_species), 
+            shape = "MCC",
+            #add = "boxplot", 
+            color = "Phylum", fill = "Phylum", palette = phylum_palette)
+p1 <- ggpar(p1, rotate = TRUE, ylab = "% Abundance", legend = "none") +
+  theme(
+    plot.margin = unit(c(1,3,1,3), "mm"),
+    axis.title.y = element_blank(),
+    axis.text.y = element_text(face = rev(bold_labels))
+  )
+
+p2 <- ggline(prev_20, x = "Species", y = "Prevalence_frac",
+             plot_type = "p",
+             order = rev(prev_20_species),
+            color = "Phylum", fill = "Phylum", shape = "Species cultured in the MCC?",
+            palette = phylum_palette)
+p2 <- ggpar(p2, rotate = TRUE, ylab = "% Prevalence", legend = "none") +
+  theme(
+        axis.title.y = element_blank(), 
+        axis.text.y = element_blank(), 
+        axis.ticks.y = element_blank(),
+        axis.line.y = element_blank(),
+        plot.margin = unit(c(1,3,1,3), "mm"),
+        legend.position = "right"
+  ) +
+  labs(shape="Species cultured \nin the MCC?",col="Taxonomic class")#
+  #scale_y_continuous(breaks=seq(50,101,3))
+  #scale_y_continuous(breaks=c(92,95,98))#seq(0,100,25))
+
+grid.arrange(p1,p2,ncol=2,widths=c(38/70,22/60))
+
+}
+```
+
+### qc metagenomes
+
+```{r}
+MAG_samples <- as.character(unlist(read_csv(file = paste0(indir1, "successful_MAG_samples.txt"), col_names = FALSE)))
+length(MAG_samples)
+```
+
+```{r}
+sample_ids <- unlist(lapply(strsplit(unique(df_s$Sample), split = "_"), function(x) { 
+  gsub(pattern = "\\.3", replacement = "", x[1]) 
+  }))
+
+# add sample ids for mgp15975 samples (all of which produced MAGs)
+MAG_samples <- c(MAG_samples, 
+  sample_ids[grep("^C.$|^E.$|^T.$", sample_ids)])
+```
+
+```{r}
+qc_samples <- unique(df_s$Sample)[which(sample_ids %in% MAG_samples)]
+qc_df_s <- df_s[which(df_s$Sample %in% qc_samples),]
+```
+
+
+```{r}
+length(unique(qc_df_s$Sample))
+```
+
+
+
+
+
+```{r}
+plot.top20prev_QC <- function(prevalence){
+
+# generate summary data for each species
+list <- lapply(split(qc_df_s, f = qc_df_s$Species), function(x) {
+  SPECIES = unique(x$Species)
+  MEAN = mean(x$Species_read_fraction)
+  PREV = length(which(x$Species_read_fraction >= prevalence)) # use >0.01% of reads to define prevalence 
+  PREV_FRAC = PREV / length(unique(qc_df_s$Sample)) * 100
+  MEAN_OF_PREV = mean(x$Species_read_fraction[which(x$Species_read_fraction >= prevalence)])
+  MAX = max(x$Species_read_fraction)
+  
+  data.frame(Species=SPECIES,
+             All_mean=MEAN,
+             Mean_of_frac=MEAN_OF_PREV,
+             Prevalence_count=PREV,
+             Prevalence_frac=PREV_FRAC,
+             Max=MAX)
+})
+
+qc_data_summary <- do.call("rbind", list)
+qc_data_summary <- merge(x = qc_data_summary, y = taxonomy, all.x = TRUE, by = "Species")
+prev_20 <- head(qc_data_summary[order(qc_data_summary$Prevalence_count, decreasing = TRUE),], 20)
+prev_20_data <- qc_df_s[which(qc_df_s$Species %in% prev_20$Species),]
+prev_20_species <- prev_20$Species
+prev_20_data$MCC <- "MAG only"
+prev_20_data$MCC[prev_20_data$Species %in% MCC_species] <- "Isolated in MCC"
+prev_20_data$MCC <- factor(prev_20_data$MCC, levels = c("MAG only", "Isolated in MCC"))
+prev_20$MCC <- "MAG only"
+prev_20$MCC[prev_20$Species %in% MCC_species] <- "Isolated in MCC"
+prev_20$MCC <- factor(prev_20$MCC, levels = c("MAG only", "Isolated in MCC"))
+bold_labels <- rep("plain", 20)
+bold_labels[which(prev_20_species %in% MCC_species)] <- "bold"
+prev_20_data <- merge(x = prev_20_data, y = taxonomy, by = "Species")
+prev_20$'Species cultured in the MCC?'<- ifelse(prev_20$MCC == "MAG only", "No", "Yes")
+
+p1 <- ggline(prev_20_data, x = "Species", y = "Species_read_fraction",
+            plot_type = "p", 
+            order = rev(prev_20_species), 
+            shape = "MCC",
+            #add = "boxplot", 
+            color = "Phylum", fill = "Phylum", palette = phylum_palette)
+p1 <- ggpar(p1, rotate = TRUE, ylab = "% Abundance", legend = "none") +
+  theme(
+    plot.margin = unit(c(1,3,1,3), "mm"),
+    axis.title.y = element_blank(),
+    axis.text.y = element_text(face = rev(bold_labels))
+  )
+
+p2 <- ggline(prev_20, x = "Species", y = "Prevalence_frac",
+             plot_type = "p",
+             order = rev(prev_20_species),
+            color = "Phylum", fill = "Phylum", shape = "Species cultured in the MCC?",
+            palette = phylum_palette)
+p2 <- ggpar(p2, rotate = TRUE, ylab = "% Prevalence", legend = "none") +
+  theme(
+        axis.title.y = element_blank(), 
+        axis.text.y = element_blank(), 
+        axis.ticks.y = element_blank(),
+        axis.line.y = element_blank(),
+        plot.margin = unit(c(1,3,1,3), "mm"),
+        legend.position = "right"
+  ) +
+  labs(shape="Species cultured \nin the MCC?",col="Taxonomic class") #+
+  #scale_y_continuous(breaks=c(92,95,98))#seq(0,100,25))
+
+grid.arrange(p1,p2,ncol=2,widths=c(38/70,22/60))
+}
+```
+
+```{r}
+plot.top20prev(0.01)
+```
+
+```{r}
+plot.top20prev(0.1)
+```
+
+```{r}
+plot.top20prev_QC(0.01)
+
+pdf(paste0(outdir, "top20_prevalence-0.01qc.pdf"), height = 4.67, width = 8)
+#grid.arrange(p1,p2,ncol=2,widths=c(38/70,22/60))
+plot.top20prev_QC(0.01)
+dev.off()
+```
+
+```{r}
+plot.top20prev_QC(0.1)
+
+pdf(paste0(outdir, "top20_prevalence-0.1qc.pdf"), height = 4.67, width = 8)
+#grid.arrange(p1,p2,ncol=2,widths=c(38/70,22/60))
+plot.top20prev_QC(0.1)
+dev.off()
+```
+
+
+
+```{r}
+61/1785*100
+```
+
+
+## most abundant species
+
+```{r}
+list <- lapply(split(qc_df_s, f = qc_df_s$Species), function(x) {
+  SPECIES = unique(x$Species)
+  MEAN = mean(x$Species_read_fraction)
+  PREV = length(which(x$Species_read_fraction >= 0.01)) # use >0.01% of reads to define prevalence 
+  PREV_FRAC = PREV / length(unique(qc_df_s$Sample)) * 100
+  MEAN_OF_PREV = mean(x$Species_read_fraction[which(x$Species_read_fraction >= 0.01)])
+  MAX = max(x$Species_read_fraction)
+  
+  data.frame(Species=SPECIES,
+             All_mean=MEAN,
+             Mean_of_frac=MEAN_OF_PREV,
+             Prevalence_count=PREV,
+             Prevalence_frac=PREV_FRAC,
+             Max=MAX)
+})
+
+qc_data_summary <- do.call("rbind", list)
+qc_data_summary <- merge(x = qc_data_summary, y = taxonomy, all.x = TRUE, by = "Species")
+
+write_tsv(qc_data_summary, path = "~/Documents/PhD/Manuscripts/MCGC_18075/MMGC_Supplement/mouse_metagenome_summary.tsv")
+```
+
+```{r}
+length(unique(qc_df_s$Sample))
+abun_20 <- head(qc_data_summary[order(qc_data_summary$All_mean, decreasing = TRUE),], 20)
+abun_20_data <- qc_df_s[which(qc_df_s$Species %in% abun_20$Species),]
+abun_20_species <- abun_20$Species
+
+abun_20_data <- merge(x = abun_20_data, y = taxonomy, by = "Species", all.x = TRUE)
+```
+
+```{r}
+p1 <- ggline(abun_20_data, x = "Species", y = "Species_read_fraction",
+            plot_type = "p", 
+            order = rev(abun_20_species),
+            #add = "boxplot", add.params = list(color = "red"),
+            color = "Phylum", fill = "Phylum", palette = phylum_palette)
+p1 <- ggpar(p1, rotate = TRUE, ylab = "% Abundance", legend = "none") +
+  theme(
+    plot.margin = unit(c(1,3,1,3), "mm"),
+    axis.title.y = element_blank()
+  )
+
+p2 <- ggline(abun_20, x = "Species", y = "Prevalence_frac",
+             plot_type = "p",
+             order = rev(abun_20_species),
+            color = "Phylum", fill = "Phylum",
+            palette = phylum_palette)
+p2 <- ggpar(p2, rotate = TRUE, ylab = "% Prevalence", legend = "none") +
+  theme(
+        axis.title.y = element_blank(), 
+        axis.text.y = element_blank(), 
+        axis.ticks.y = element_blank(),
+        axis.line.y = element_blank(),
+        plot.margin = unit(c(1,3,1,3), "mm"),
+        legend.position = "right"
+  )
+
+grid.arrange(p1,p2,ncol=2,widths=c(3/5,2/5))
+
+#jpeg("~/Documents/PhD/Manuscripts/Human_Mouse_comparison/Figure 2/R_plots/rplot-abun_class.jpg", height = 350, width = 600)
+#grid.arrange(p1,p2,ncol=2,widths=c(3/5,2/5))
+#dev.off()
+
+#jpeg("~/Documents/PhD/Manuscripts/Human_Mouse_comparison/Figure 2/R_plots/rplot-abun_class-LEGEND.jpg", height = 350, width = 600)
+#grid.arrange(p1,p2,ncol=2,widths=c(2/5,3/5))
+#dev.off()
+```
+
+```{r}
+pdf(paste0(outdir, "top20_abundance-0.01qc.pdf"), height = 4.67, width = 8)
+#grid.arrange(p1,p2,ncol=2,widths=c(38/70,22/60))
+grid.arrange(p1,p2,ncol=2,widths=c(3/5,2/5))
+dev.off()
+```
+
+```{r}
+summary(qc_df_s$Species_read_fraction[qc_df_s$Species == "CAG-485 sp002362485"])
+```
+
+
+
+```{r}
+# generate summary data for each species
+list <- lapply(split(qc_df_s, f = qc_df_s$Species), function(x) {
+  SPECIES = unique(x$Species)
+  MEAN = mean(x$Species_read_fraction)
+  PREV = length(which(x$Species_read_fraction >= prevalence)) # use >0.01% of reads to define prevalence 
+  PREV_FRAC = PREV / length(unique(qc_df_s$Sample)) * 100
+  MEAN_OF_PREV = mean(x$Species_read_fraction[which(x$Species_read_fraction >= prevalence)])
+  MAX = max(x$Species_read_fraction)
+  
+  data.frame(Species=SPECIES,
+             All_mean=MEAN,
+             Mean_of_frac=MEAN_OF_PREV,
+             Prevalence_count=PREV,
+             Prevalence_frac=PREV_FRAC,
+             Max=MAX)
+})
+
+qc_data_summary <- do.call("rbind", list)
+qc_data_summary <- merge(x = qc_data_summary, y = taxonomy, all.x = TRUE, by = "Species")
+prev_20 <- head(qc_data_summary[order(qc_data_summary$Prevalence_count, decreasing = TRUE),], 20)
+prev_20_data <- qc_df_s[which(qc_df_s$Species %in% prev_20$Species),]
+prev_20_species <- prev_20$Species
+prev_20_data$MCC <- "MAG only"
+prev_20_data$MCC[prev_20_data$Species %in% MCC_species] <- "Isolated in MCC"
+prev_20_data$MCC <- factor(prev_20_data$MCC, levels = c("MAG only", "Isolated in MCC"))
+prev_20$MCC <- "MAG only"
+prev_20$MCC[prev_20$Species %in% MCC_species] <- "Isolated in MCC"
+prev_20$MCC <- factor(prev_20$MCC, levels = c("MAG only", "Isolated in MCC"))
+bold_labels <- rep("plain", 20)
+bold_labels[which(prev_20_species %in% MCC_species)] <- "bold"
+prev_20_data <- merge(x = prev_20_data, y = taxonomy, by = "Species")
+prev_20$'Species cultured in the MCC?'<- ifelse(prev_20$MCC == "MAG only", "No", "Yes")
+
+p1 <- ggline(prev_20_data, x = "Species", y = "Species_read_fraction",
+            plot_type = "p", 
+            order = rev(prev_20_species), 
+            shape = "MCC",
+            #add = "boxplot", 
+            color = "Phylum", fill = "Phylum", palette = phylum_palette)
+p1 <- ggpar(p1, rotate = TRUE, ylab = "% Abundance", legend = "none") +
+  theme(
+    plot.margin = unit(c(1,3,1,3), "mm"),
+    axis.title.y = element_blank(),
+    axis.text.y = element_text(face = rev(bold_labels))
+  )
+
+p2 <- ggline(prev_20, x = "Species", y = "Prevalence_frac",
+             plot_type = "p",
+             order = rev(prev_20_species),
+            color = "Phylum", fill = "Phylum", shape = "Species cultured in the MCC?",
+            palette = phylum_palette)
+p2 <- ggpar(p2, rotate = TRUE, ylab = "% Prevalence", legend = "none") +
+  theme(
+        axis.title.y = element_blank(), 
+        axis.text.y = element_blank(), 
+        axis.ticks.y = element_blank(),
+        axis.line.y = element_blank(),
+        plot.margin = unit(c(1,3,1,3), "mm"),
+        legend.position = "right"
+  ) +
+  labs(shape="Species cultured \nin the MCC?",col="Taxonomic class") #+
+  #scale_y_continuous(breaks=c(92,95,98))#seq(0,100,25))
+
+grid.arrange(p1,p2,ncol=2,widths=c(38/70,22/60))
+}
+```
+
+
+
+## metagenome analyses using qc'ed data
+
+```{r}
+pass_qc <- metadata_1926[which(metadata_1926$Sample %in% MAG_samples),]
+fail_qc <- metadata_1926[which(!metadata_1926$Sample %in% MAG_samples),]
+```
+
+```{r}
+length(unique(metadata_1926$Study)) # 71 studies
+length(unique(pass_qc$Study)) # 71 studies
+#fail_qc
+```
+
+### Fix metadata
+```{r}
+#head(pass_qc)
+pass_qc$Compartment[which(pass_qc$Compartment == "Feces")] <- "Faeces"
+pass_qc$Diet[which(pass_qc$Diet == "chow")] <- "Chow"
+pass_qc$`Dietary Supplement`[which(pass_qc$`Dietary Supplement` == "PBS")] <- "None"
+pass_qc$Strain[which(pass_qc$Strain == "C57BL6/J")] <- "C57BL/6J"
+pass_qc$Strain[which(pass_qc$Strain == "129/SvE")] <- "129/Sv"
+pass_qc$Treatment[which(pass_qc$Treatment == "Contol")] <- "Control"
+
+colnames(pass_qc) <- c("Study", "Sample", "Mouse", "Vendor_long", "Vendor_name", "Vendor_location", "Vendor_country", "Centre_name", 
+  "Institute", "Institute_country", "Institute_location", "Institute_continent", "GI_tissue", 
+  "Alternative_sample_names", "Biosample_id", "Diet", "Dietary_supplement", "Age", "Sex", "Barrier", 
+  "Publication", "Genetic_background", "Strain", "Genotype", "Notes", "LibraryLayout", "LibrarySelection", "Treatment", "Exclude", "Sample_type", "ExGermFree", "Transplanted_microbiota")
+```
+
+```{r}
+length(which(!(is.na(unique(pass_qc$Vendor_name))))) # 41 Vendors (grouped)
+length(which(!(is.na(unique(pass_qc$Vendor_long))))) # 50 Vendors
+
+length(which(!(is.na(unique(pass_qc$Institute))))) # 56 institutes
+length(which(!(is.na(unique(pass_qc$Institute_country))))) # 18 countries
+length(which(!(is.na(unique(pass_qc$Institute_continent))))) # 4 continents
+length(which(!(is.na(unique(pass_qc$GI_tissue))))) # 7
+length(which(!(is.na(unique(pass_qc$Genetic_background))))) # 13 
+length(which(!(is.na(unique(pass_qc$Strain))))) # 19
+length(which(!(is.na(unique(pass_qc$Study))))) # 19
+```
+
+### Fix sample names on Bracken output
+```{r}
+names_change <- rbind(
+  data.frame(Sample=metadata_1926$Sample,
+           Alternative_name=metadata_1926$`Alternative sample name`),
+  data.frame(Sample=metadata_1926$Sample,
+           Alternative_name=metadata_1926$`Biosample number`))
+
+qc_df_s$Sample <- gsub(pattern = "_1_kneaddata_paired", replacement = "", qc_df_s$Sample) %>% 
+  gsub(pattern = "_kneaddata", replacement = "")
+
+for ( old_name in unique(qc_df_s$Sample[which(qc_df_s$Sample %in% names_change$Alternative_name)])) {
+  new_name <- names_change$Sample[grep(pattern = old_name, names_change$Alternative_name)]
+  qc_df_s$Sample[grep(pattern = old_name, qc_df_s$Sample)] <- new_name
+}
+```
+
+# prepare metadata
+```{r}
+#apply(pass_qc, 2, is.na) %>% apply(2, any)
+#colnames(pass_qc)
+#pass_qc
+metadata <- pass_qc[,c(1,2,4,5,6,7,9,10,11,12,13,16,17,18,19,22,23,24,26,27,28,30,31)]
+#metadata
+metadata$ExGermFree[is.na(metadata$ExGermFree)] <- "Endogenous"
+metadata$Microbiota_status <- "Laboratory"
+metadata$Microbiota_status[which(metadata$Treatment == "Wild")] <- "Wild"
+```
+
+
+```{r}
+# metadata NAs 
+apply(metadata, MARGIN = 2, function(x) {
+  length(which(is.na(x)))/nrow(metadata)*100
+})
+```
+
+
+```{r}
+# define function to generate a geometric mean
+gm_mean = function(x, na.rm=TRUE){
+  exp(sum(log(x[x > 0]), na.rm=na.rm) / length(x))
+}
+```
+
+
+# Generating distance matrices and ordinating (PCoA)
+
+## Generate OTU table
+```{r}
+data <- qc_df_s[,c(1,2,8)]
+
+otu <- dcast(data, Species ~ Sample)
+otu[is.na(otu)] <- 0
+rownames(otu) <- otu$Species
+otu_m <- as.matrix(otu[,c(2:ncol(otu))])
+```
+
+## Aitchson distance - valid for compositional data
+```{r}
+ps_d.czm <- cmultRepl(X = t(otu_m), label = 0, method = "CZM")
+ps_d.clr <- t(apply(ps_d.czm, 1, function(x){log(x/gm_mean(x))}))
+
+aitch <- vegdist(x = ps_d.clr, method = "euc", binary = FALSE)
+d <- cmdscale(aitch, k = 2, eig = TRUE)
+points <- as.data.frame(d$points)
+colnames(points) <- c("x", "y")
+points$Sample <- row.names(points)
+df <- merge(x = points, y = metadata, by = "Sample", all.x = TRUE)
+```
+
+```{r}
+# generate PCoAs for all variables of the metadata
+for ( i in colnames(metadata) ) {
+  p <- ggscatter(data = df, x = "x", y = "y", 
+               color = i,
+               ellipse = TRUE,
+               size = 0.1,
+               ellipse.type = "t",
+               xlab = "PCoA 1",
+               ylab = "PCoA 2",
+               title = i
+               )
+  plot <- ggpar(p, legend = "none")
+  
+  print(plot)
+}
+```
+
+```{r}
+#df
+p <- ggscatter(data = df, x = "x", y = "y", 
+               color = "Study",
+               ellipse = FALSE,
+               #size = 0.1,
+               #ellipse.type = "t",
+               xlab = "PCoA 1",
+               ylab = "PCoA 2"
+               )
+ggpar(p, legend = "none")
+
+pdf("~/Documents/PhD/Manuscripts/MCGC_18075/Figure_2/PCoA_study.pdf", height = 5, width = 5)
+ggpar(p, legend = "none")
+dev.off()
+```
+
+```{r}
+p <- ggscatter(data = df[which(df$Genetic_background == "C57BL/6" & df$Treatment == "Control"),], x = "x", y = "y", 
+               color = "Institute",
+               ellipse = TRUE,
+               size = 0.1,
+               ellipse.type = "t",
+               xlab = "PCoA 1",
+               ylab = "PCoA 2"
+               )
+ggpar(p, legend = "none")
+```
+
+
+```{r}
+colnames(metadata)
+sort(apply(metadata, 2, function(x) {length(unique(x))}))
+```
+
+
+### Looking at just control type mice.
+```{r}
+controls_only_md <- metadata[which(metadata$Treatment == "Control"),]
+controls_only <- controls_only_md$Sample
+controls_only_data <- data[which(data$Sample %in% controls_only),]
+
+otu_co <- dcast(controls_only_data, Species ~ Sample)
+otu_co[is.na(otu_co)] <- 0
+rownames(otu_co) <- otu_co$Species
+otu_m_co <- as.matrix(otu[,c(2:ncol(otu_co))])
+
+ps_d.czm_co <- cmultRepl(X = t(otu_m), label = 0, method = "CZM")
+ps_d.clr_co <- t(apply(ps_d.czm_co, 1, function(x){log(x/gm_mean(x))}))
+
+aitch_co <- vegdist(x = ps_d.clr_co, method = "euc", binary = FALSE)
+d_co <- cmdscale(aitch_co, k = 2, eig = TRUE)
+points_co <- as.data.frame(d_co$points)
+colnames(points_co) <- c("x", "y")
+points_co$Sample <- row.names(points_co)
+df_co <- merge(x = points_co, y = controls_only_md, by = "Sample", all.x = TRUE)
+
+
+for ( i in colnames(controls_only_md) ) {
+  p <- ggscatter(data = df_co, x = "x", y = "y", 
+               color = i,
+               ellipse = TRUE,
+               size = 0.1,
+               ellipse.type = "t",
+               xlab = "PCoA 1",
+               ylab = "PCoA 2",
+               title = i
+               )
+  plot <- ggpar(p, legend = "none")
+  
+  print(plot)
+
+}
+```
+
+
+Remove all NA values for residual analyses
+```{r}
+# metadata NAs 
+apply(metadata, MARGIN = 2, function(x) {
+  length(which(is.na(x)))/nrow(metadata)*100
+})
+```
+
+```{r}
+md <- metadata[which(complete.cases(metadata)),]  # qc whole metadata df
+d <- data[which(data$Sample %in% md$Sample),]
+otu <- dcast(d, Species ~ Sample)
+otu[is.na(otu)] <- 0
+rownames(otu) <- otu$Species
+otu_m <- as.matrix(otu[,c(2:ncol(otu))])
+  
+ps_d.czm <- cmultRepl(X = t(otu_m), label = 0, method = "CZM")
+ps_d.clr <- t(apply(ps_d.czm, 1, function(x){log(x/gm_mean(x))}))
+
+aitch <- vegdist(x = ps_d.clr, method = "euc", binary = FALSE)
+d <- cmdscale(aitch, k = 2, eig = TRUE)
+points <- as.data.frame(d$points)
+colnames(points) <- c("x", "y")
+points$Sample <- row.names(points)
+df <- merge(x = points, y = metadata, by = "Sample", all.x = TRUE)
+
+aitch.m <- as.matrix(aitch)
+```
+
+```{r} 
+A.model <- adonis(aitch.m ~ Institute+Institute_location+Vendor_long+Vendor_location+Vendor_name+Age+Treatment+Institute_country+Vendor_country+Strain+Dietary_supplement+Genotype+Diet+Genetic_background+Institute_continent+GI_tissue+Sex+Sample_type+Microbiota_status, data = metadata, permutations = 999) # update with LS, remove Treatment
+
+A.model.df <- data.frame(Variable=row.names(A.model$aov.tab)[c(1:length(row.names(A.model$aov.tab))-1)], 
+           Rsquared=A.model$aov.tab[c(1:length(row.names(A.model$aov.tab))-1),5])
+
+A.model.df <- A.model.df[c(1:10,12),]
+
+A.model.df$Variable[2] <- "Vendor"
+A.model.df$Variable[5] <- "Mouse strain"
+A.model.df$Variable[6] <- "Dietary supplement"
+A.model.df$Variable[7] <- "Genotype (wt vs ko)"
+A.model.df$Variable[9] <- "Sampled GI region"
+
+#A.model.df$Variable[6] <- "Geographical region\n (City/State)"
+#A.model.df$Variable[7] <- "GI region"
+#A.model.df$Variable[6] <- "Dietary supplements"
+#A.model.df$Variable[10] <- "Lab vs Wild"
+
+A.model.order <- c(A.model.df$Variable[order(A.model.df$Rsquared[c(1:nrow(A.model.df)-1)], decreasing=TRUE)], "Residuals")
+
+p <- ggbarplot(A.model.df, x = "Variable", y = "Rsquared", 
+          order = rev(A.model.order),
+          label = TRUE, lab.nb.digits = 3, lab.hjust = -0.1, lab.vjust = 0.4,
+          ylab = "Proportion of explained variance") +
+  ylim(c(0,0.53))
+ggpar(p, rotate = TRUE, ylab = FALSE)
+```
+
+                     Df SumsOfSqs MeanSqs F.Model      R2 Pr(>F)    
+Institute            39    903103 23156.5 19.2603 0.33837  0.001 ***
+Vendor_long           7    125258 17894.0 14.8832 0.04693  0.001 ***
+Age                  19     73765  3882.3  3.2291 0.02764  0.001 ***
+Treatment            29     66611  2296.9  1.9104 0.02496  0.001 ***
+Strain                9     62086  6898.4  5.7377 0.02326  0.001 ***
+Dietary_supplement    6     68889 11481.5  9.5497 0.02581  0.001 ***
+Genotype              2     19740  9870.0  8.2093 0.00740  0.001 ***
+Diet                  2      7668  3833.8  3.1887 0.00287  0.001 ***
+GI_tissue             5      8740  1748.0  1.4539 0.00327  0.018 *  
+Sex                   1      1993  1993.0  1.6577 0.00075  0.074 .  
+Sample_type           1       214   213.8  0.1778 0.00008  0.996    
+Residuals          1107   1330938  1202.3         0.49866           
+Total              1227   2669003                 1.00000           
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+```{r}
+pdf(paste0(outdir, "explained_variance_residuals.pdf"), height = 4.67, width = 6.67)
+ggpar(p, rotate = TRUE, ylab = FALSE)
+dev.off()
+```
+
+
+```{#r}
+noNA.study <- adonis(aitch.m ~ Study, data = md, permutations = 999)$aov.tab[1,5]
+noNA.sample <- run.adonis("Sample")
+noNA.vendor_long <- run.adonis("Vendor_long")
+noNA.vendor_name <- run.adonis("Vendor_name")
+noNA.vendor_location <- run.adonis("Vendor_location")
+noNA.country <- run.adonis("Vendor_country")
+noNA.institute <- run.adonis("Institute")
+noNA.institute_country <- run.adonis("Institute_country")
+noNA.institute_location <- run.adonis("Institute_location")
+noNA.institute_continent <- run.adonis("Institute_continent")
+noNA.GI_region <- run.adonis("GI_tissue")
+noNA.diet <- run.adonis("Diet")
+noNA.dietary_supplement <- run.adonis("Dietary_supplement")
+noNA.age <- run.adonis("Age")
+noNA.sex <- run.adonis("Sex")
+noNA.genetic_background <- run.adonis("Genetic_background")
+noNA.strain <- run.adonis("Strain")
+noNA.genotype <- run.adonis("Genotype")
+noNA.LL <- run.adonis("LibraryLayout")
+noNA.LS <- run.adonis("LibrarySelection")
+noNA.treatment <- run.adonis("Treatment")
+noNA.sample_type <- run.adonis("Sample_type")
+noNA.exGF <- run.adonis("ExGermFree")
+noNA.microbiota_status <- run.adonis("Microbiota_status")
+```
+
+
+Function to remove NAs and run adonis per metadata.
+```{r}
+run.adonis <- function(md_variable) {
+  col_i <- which(colnames(metadata) == md_variable)
+  md <- metadata[which(complete.cases(metadata[,col_i])),]  
+  d <- data[which(data$Sample %in% md$Sample),]
+  otu <- dcast(d, Species ~ Sample)
+  otu[is.na(otu)] <- 0
+  rownames(otu) <- otu$Species
+  otu_m <- as.matrix(otu[,c(2:ncol(otu))])
+  
+  ps_d.czm <- cmultRepl(X = t(otu_m), label = 0, method = "CZM")
+  ps_d.clr <- t(apply(ps_d.czm, 1, function(x){log(x/gm_mean(x))}))
+
+  aitch <- vegdist(x = ps_d.clr, method = "euc", binary = FALSE)
+  d <- cmdscale(aitch, k = 2, eig = TRUE)
+  points <- as.data.frame(d$points)
+  colnames(points) <- c("x", "y")
+  points$Sample <- row.names(points)
+  df <- merge(x = points, y = metadata, by = "Sample", all.x = TRUE)
+  
+  # generate PCoA
+  p <- ggscatter(data = df, x = "x", y = "y", 
+               color = md_variable,
+               ellipse = TRUE,
+               size = 0.1,
+               ellipse.type = "t",
+               xlab = "PCoA 1",
+               ylab = "PCoA 2",
+               title = md_variable
+               )
+  plot <- ggpar(p, legend = "none")
+  
+  print(plot)
+  
+  colnames(md)[col_i] <- "ADONIS"
+  
+  # run adonis
+  aitch.m <- as.matrix(aitch)
+  a.out <- adonis(aitch.m ~ ADONIS, data = md, permutations = 999)$aov.tab[1,5] # save whole table > P-values
+  print(a.out)
+}
+```
+
+```{r}
+colnames(metadata)
+```
+
+```{r}
+a.study <- run.adonis("Study")
+a.sample <- run.adonis("Sample")
+a.vendor_long <- run.adonis("Vendor_long")
+a.vendor_name <- run.adonis("Vendor_name")
+a.vendor_location <- run.adonis("Vendor_location")
+a.country <- run.adonis("Vendor_country")
+a.institute <- run.adonis("Institute")
+a.institute_country <- run.adonis("Institute_country")
+a.institute_location <- run.adonis("Institute_location")
+a.institute_continent <- run.adonis("Institute_continent")
+a.GI_region <- run.adonis("GI_tissue")
+a.diet <- run.adonis("Diet")
+a.dietary_supplement <- run.adonis("Dietary_supplement")
+a.age <- run.adonis("Age")
+a.sex <- run.adonis("Sex")
+a.genetic_background <- run.adonis("Genetic_background")
+a.strain <- run.adonis("Strain")
+a.genotype <- run.adonis("Genotype")
+a.LL <- run.adonis("LibraryLayout")
+a.LS <- run.adonis("LibrarySelection")
+a.treatment <- run.adonis("Treatment")
+a.sample_type <- run.adonis("Sample_type")
+a.exGF <- run.adonis("ExGermFree")
+a.microbiota_status <- run.adonis("Microbiota_status")
+```
+
+
+```{r}
+aov.df <- as.data.frame(
+  t(
+    data.frame(
+      a.study, 
+      a.sample, 
+      a.vendor_long, 
+      a.vendor_name, 
+      a.vendor_location, 
+      a.country, 
+      a.institute, 
+      a.institute_country, 
+      a.institute_location, 
+      a.institute_continent, 
+      a.GI_region, 
+      a.diet, 
+      a.dietary_supplement, 
+      a.age, 
+      a.sex, 
+      a.genetic_background, 
+      a.strain, 
+      a.genotype, 
+      a.LL, 
+      a.LS, 
+      a.treatment, 
+      a.sample_type, 
+      a.exGF, 
+      a.microbiota_status
+      )
+    )
+  )
+
+colnames(aov.df) <- "Rsquared"
+aov.df$Variable <- gsub(row.names(aov.df), pattern = "^a.", replacement = "")
+
+aov.df$Variable[1] <- "Study"
+aov.df$Variable[3] <- "Vendor"
+aov.df$Variable[6] <- "Vendor country"
+aov.df$Variable[7] <- "Institute"
+aov.df$Variable[8] <- "Institute country"
+aov.df$Variable[10] <- "Institute continent"
+aov.df$Variable[11] <- "Sampled GI region"
+aov.df$Variable[12] <- "Diet"
+aov.df$Variable[13] <- "Dietary supplement"
+aov.df$Variable[14] <- "Age"
+aov.df$Variable[15] <- "Sex"
+aov.df$Variable[17] <- "Mouse strain"
+aov.df$Variable[18] <- "Genotype (wt vs ko)"
+aov.df$Variable[21] <- "Treatment"
+aov.df$Variable[24] <- "Lab vs Wild"
+
+
+p <- ggbarplot(data = aov.df, x = "Variable", y = "Rsquared", sort.val = "asc",
+          label = TRUE, lab.nb.digits = 3,
+          ylab = "Proportion of explained variance",
+          lab.hjust = -0.1, lab.vjust = 0.4)
+
+ggpar(p, rotate = TRUE, ylab = FALSE)# +  ylim(c(0,0.25))
+
+#Institute, Institute_location, Vendor_long, Vendor_location, Vendor_name, Age, Treatment, Institute_country, Vendor_country, Strain, Dietary_supplement, Genotype, Diet, Genetic_background, Institute_continent, GI_region, Sex, Sample_type, Microbiota_status
+```
+
+```{r}
+aov.df_INDP <- aov.df[c(1,3,6,7,8,10,11,12,13,14,15,17,18,21,24),]
+aov.df_INDP[order(aov.df_INDP$Rsquared, decreasing = TRUE),]
+
+p <- ggbarplot(data = aov.df_INDP, x = "Variable", y = "Rsquared", sort.val = "asc",
+          label = TRUE, lab.nb.digits = 3,
+          ylab = "Proportion of explained variance",
+          lab.hjust = -0.1, lab.vjust = 0.4)
+
+ggpar(p, rotate = TRUE, ylab = FALSE) +  ylim(c(0,0.38))
+```
+
+```{r}
+pdf(paste0(outdir, "explained_variance_IND.pdf"), height = 4.67, width = 5.5)
+ggpar(p, rotate = TRUE, ylab = FALSE) +  ylim(c(0,0.38))
+dev.off()
+```
+
+
+
+## PCA (as euclidean distances following clr transformation)
+```{r}
+library(factoextra)
+clr <- data.frame(Sample=row.names(ps_d.clr))
+clr <- merge(x = clr, y = metadata, by = "Sample", all.x = TRUE)
+
+aitch.pca <- prcomp(ps_d.clr, center = TRUE, scale. = TRUE)
+ggbiplot(aitch.pca, var.axes = FALSE, groups = clr$Institute) + theme(legend.position = "none")
+
+pca.var <- get_pca_var(aitch.pca)
+
+var.coord <- pca.var$coord # get coordinates of variable effects
+c_dist <- sqrt(var.coord[,1]^2 + var.coord[,2]^2) # get distance from the centre
+head(c_dist[order(c_dist, decreasing = TRUE)], 10) # top 10 species sorted by distance of first 2 dimensions
+
+c_dist.df <- data.frame(Species=names(c_dist), c_dist=as.numeric(c_dist))
+p <- ggbarplot(data = c_dist.df, x = "Species", y = "c_dist", 
+          sort.val = "asc",
+          top = 20)
+ggpar(p, rotate = TRUE) # top 20 most variance-driving species
+```
+
+
+## Bray-Curtis - semimetric
+```{r}
+bray <- vegdist(x = t(otu_m), method = "bray", binary = FALSE)
+d <- cmdscale(bray, k = 2, eig = TRUE)
+points <- as.data.frame(d$points)
+colnames(points) <- c("x", "y")
+points$Sample <- row.names(points)
+df <- merge(x = points, y = metadata, by = "Sample", all.x = TRUE)
+p <- ggscatter(data = df, x = "x", y = "y", 
+               color = "Institute",
+               ellipse = TRUE,
+               size = 0.1,
+               ellipse.type = "t"
+               )
+ggpar(p, legend = "none")
+```
+
+```{r}
+bray.m <- as.matrix(bray)
+
+B.Institute <- adonis(bray.m ~ Institute, data = metadata, permutations = 999)$aov.tab[1,5]
+B.Study <- adonis(bray.m ~ Study, data = metadata, permutations = 999)$aov.tab[1,5]
+B.Genotype <- adonis(bray.m ~ Genotype, data = metadata, permutations = 999)$aov.tab[1,5]
+B.Vendor <- adonis(bray.m ~ Vendor, data = metadata, permutations = 999)$aov.tab[1,5]
+B.Country <- adonis(bray.m ~ Country, data = metadata, permutations = 999)$aov.tab[1,5]
+B.Location <- adonis(bray.m ~ Location, data = metadata, permutations = 999)$aov.tab[1,5]
+B.Compartment <- adonis(bray.m ~ Compartment, data = metadata, permutations = 999)$aov.tab[1,5]
+B.Diet <- adonis(bray.m ~ Diet, data = metadata, permutations = 999)$aov.tab[1,5]
+B.Enrichment <- adonis(bray.m ~ Enrichment, data = metadata, permutations = 999)$aov.tab[1,5]
+B.Wild <- adonis(bray.m ~ Wild_status, data = metadata, permutations = 999)$aov.tab[1,5]
+
+aov.df <- as.data.frame(t(data.frame(B.Institute, B.Study, B.Genotype, B.Vendor, B.Country, B.Location, B.Compartment, B.Diet, B.Enrichment, B.Wild)))
+colnames(aov.df) <- "Rsquared"
+aov.df$Variable <- gsub(row.names(aov.df), pattern = "B.", replacement = "")
+aov.df
+#sort(aov.df$V1, decreasing = TRUE)
+
+ggbarplot(data = aov.df, x = "Variable", y = "Rsquared", sort.val = "desc", 
+          label = TRUE, lab.nb.digits = 3)
+```
+
+```{r}
+B.model <- adonis(bray.m ~ Institute+Genotype+Country+Location+Study+Diet+Vendor+Enrichment+Compartment+Wild_status, data = metadata, permutations = 999)
+B.model.df <- data.frame(Variable=row.names(B.model$aov.tab)[c(1:length(row.names(B.model$aov.tab))-1)], 
+           Rsquared=B.model$aov.tab[c(1:length(row.names(B.model$aov.tab))-1),5])
+B.model.order <- c(B.model.df$Variable[order(B.model.df$Rsquared[c(1:nrow(B.model.df)-1)], decreasing=TRUE)], "Residuals")
+ggbarplot(B.model.df, x = "Variable", y = "Rsquared", 
+          order = B.model.order,
+          label = TRUE, lab.nb.digits = 3)
+```
+
+
+```{r}
+
+## Jaccard - metric
+jaccard <- vegdist(x = t(otu_m), method = "jaccard", binary = FALSE)
+d <- cmdscale(jaccard, k = 2, eig = TRUE)
+points <- as.data.frame(d$points)
+colnames(points) <- c("x", "y")
+points$Sample <- row.names(points)
+df <- merge(x = points, y = metadata, by = "Sample", all.x = TRUE)
+
+p <- ggscatter(data = df, x = "x", y = "y", 
+               color = "Institute",
+               ellipse = TRUE,
+               size = 0.1,
+               ellipse.type = "t"
+               )
+ggpar(p, legend = "none")
+```
+
+```{r}
+jaccard.m <- as.matrix(jaccard)
+
+J.Institute <- adonis(jaccard.m ~ Institute, data = metadata, permutations = 999)$aov.tab[1,5]
+J.Study <- adonis(jaccard.m ~ Study, data = metadata, permutations = 999)$aov.tab[1,5]
+J.Genotype <- adonis(jaccard.m ~ Genotype, data = metadata, permutations = 999)$aov.tab[1,5]
+J.Vendor <- adonis(jaccard.m ~ Vendor, data = metadata, permutations = 999)$aov.tab[1,5]
+J.Country <- adonis(jaccard.m ~ Country, data = metadata, permutations = 999)$aov.tab[1,5]
+J.Location <- adonis(jaccard.m ~ Location, data = metadata, permutations = 999)$aov.tab[1,5]
+J.Compartment <- adonis(jaccard.m ~ Compartment, data = metadata, permutations = 999)$aov.tab[1,5]
+J.Diet <- adonis(jaccard.m ~ Diet, data = metadata, permutations = 999)$aov.tab[1,5]
+J.Enrichment <- adonis(jaccard.m ~ Enrichment, data = metadata, permutations = 999)$aov.tab[1,5]
+J.Wild <- adonis(jaccard.m ~ Wild_status, data = metadata, permutations = 999)$aov.tab[1,5]
+
+aov.df <- as.data.frame(t(data.frame(J.Institute, J.Study, J.Genotype, J.Vendor, J.Country, J.Location, J.Compartment, J.Diet, J.Enrichment, J.Wild)))
+colnames(aov.df) <- "Rsquared"
+aov.df$Variable <- gsub(row.names(aov.df), pattern = "J.", replacement = "")
+aov.df
+#sort(aov.df$V1, decreasing = TRUE)
+
+ggbarplot(data = aov.df, x = "Variable", y = "Rsquared", sort.val = "desc",
+          label = TRUE, lab.nb.digits = 3)
+```
+
+```{r}
+J.model <- adonis(jaccard.m ~ Institute+Genotype+Country+Location+Study+Diet+Vendor+Enrichment+Compartment+Wild_status, data = metadata, permutations = 999)
+J.model.df <- data.frame(Variable=row.names(J.model$aov.tab)[c(1:length(row.names(J.model$aov.tab))-1)], 
+           Rsquared=J.model$aov.tab[c(1:length(row.names(J.model$aov.tab))-1),5])
+J.model.order <- c(J.model.df$Variable[order(J.model.df$Rsquared[c(1:nrow(J.model.df)-1)], decreasing=TRUE)], "Residuals")
+ggbarplot(J.model.df, x = "Variable", y = "Rsquared", 
+          order = J.model.order,
+          label = TRUE, lab.nb.digits = 3)
+```
+
+
+```{r}
+max(ps_d.clr)
+min(ps_d.clr)
+```
+
+
+## Heatmaps
+```{r}
+# using data with all NA rows removed 
+
+# generate row data
+
+rowdata <- data.frame(Origin=metadata$Microbiota_status, 
+                      Genotype=metadata$Strain, 
+                      Study=metadata$Study, 
+                      Institute=metadata$Institute, 
+                      Vendor=metadata$Vendor_long)
+row.names(rowdata) <- metadata$Sample
+
+colnames(rowdata)[c(1,2,5)] <- c("Lab vs Wild", "Mouse strain", "Vendor")
+```
+
+# exclude sex and age NA values > depletes 
+
+```{r}
+# heatmap
+pheatmap(mat= ps_d.clr, show_rownames = FALSE, show_colnames = FALSE)
+
+pheatmap(mat= ps_d.clr, show_rownames = FALSE, show_colnames = FALSE, annotation_row = rowdata, annotation_legend = FALSE)
+
+#, annotation_row = rowdata, cutree_rows = 2, cutree_cols = 2, annotation_legend = FALSE
+         #)
+```
+
+```{r}
+pdf(paste0(outdir, "heatmap_woLegend.pdf"), height = 6, width = 8)
+pheatmap(mat= ps_d.clr, show_rownames = FALSE, show_colnames = FALSE, annotation_row = rowdata, annotation_legend = FALSE)
+dev.off()
+
+pdf(paste0(outdir, "heatmap_withLegend.pdf"), height = 20, width = 20)
+pdf("~/Documents/PhD/Manuscripts/Human_Mouse_comparison/Figure 2/R_plots/cluster-heatmap-legend.pdf", 
+    height = 13.33, width = 13.33)
+pheatmap(mat= ps_d.clr, show_rownames = FALSE, show_colnames = FALSE, annotation_row = rowdata, annotation_legend = TRUE)
+dev.off()
+```
+
+
+
+
+
+
+
+```{r}
+gg_color_hue <- function(n) {
+  hues = seq(15, 375, length = n + 1)
+  hcl(h = hues, l = 65, c = 100)[1:n]
+}
+
+gg_color_hue(16)
+
+dev.new(width = 4, height = 4)
+plot(1:16, pch = 16, cex = 2, col = gg_color_hue(16))
+```
+
+
+```{r}
+rowdata <- data.frame(Origin=metadata$Wild_status, Genotype=metadata$Genotype, Study=metadata$Study, Institute=metadata$Institute, Vendor=metadata$Vendor)
+row.names(rowdata) <- metadata$Sample
+
+colnames(rowdata)[1] <- "Lab vs Wild"
+
+
+# change colour schemes
+unique(metadata$Study)
+
+
+metadata$Sample
+mat_col <- data.frame(group = metadata$Institute)
+#pheatmap(mat=ps_d.clr,
+#         show_rownames = FALSE,
+#         show_colnames = FALSE, annotation_row = rowdata, cutree_rows = 2, cutree_cols = 2, annotation_legend = TRUE,
+#         filename = "~/Documents/PhD/Manuscripts/Human_Mouse_comparison/Figure 2/R_plots/rplot_3-heatmap-wlegend.png"
+#         )
+```
+
+```{r}
+pheatmap(mat=ps_d.clr,
+         show_rownames = FALSE,
+         show_colnames = FALSE, annotation_row = rowdata, cutree_rows = 2, cutree_cols = 2, annotation_legend = FALSE,
+         annotation_colors = gg_color_hue(16))
+#pheatmap()
+
+
+#pheatmap(mat= ps_d.clr,
+#         show_rownames = FALSE,
+#         show_colnames = FALSE, annotation_row = rowdata, cutree_rows = 2, cutree_cols = 2, annotation_legend = FALSE
+#         )
+
+#jpeg("~/Documents/PhD/Manuscripts/Human_Mouse_comparison/Figure 2/R_plots/rplot_3-heatmap.png", height = 350, width = 400)
+pheatmap(mat= ps_d.clr,
+         show_rownames = FALSE,
+         show_colnames = FALSE, annotation_row = rowdata, cutree_rows = 2, cutree_cols = 2, annotation_legend = FALSE
+         )
+#dev.off()
+
+#jpeg("~/Documents/PhD/Manuscripts/Human_Mouse_comparison/Figure 2/R_plots/rplot_3-heatmap_2.png", height = 450, width = 600)
+pheatmap(mat= ps_d.clr,
+         show_rownames = FALSE,
+         show_colnames = FALSE, annotation_row = rowdata, cutree_rows = 2, cutree_cols = 2, annotation_legend = FALSE
+         )
+#dev.off()
+## better size
+
+pdf("~/Documents/PhD/Manuscripts/Human_Mouse_comparison/Figure 2/R_plots/rplot_3-heatmap_2.pdf", height = 6, width = 8)
+pheatmap(mat= ps_d.clr,
+         show_rownames = FALSE,
+         show_colnames = FALSE, annotation_row = rowdata, cutree_rows = 2, cutree_cols = 2, annotation_legend = FALSE
+         )
+dev.off()
+
+
+#jpeg("~/Documents/PhD/Manuscripts/Human_Mouse_comparison/Figure 2/R_plots/rplot_3-heatmap-legend.png", height = 1000, width = 1000)
+pheatmap(mat= ps_d.clr,
+         show_rownames = FALSE,
+         show_colnames = FALSE, annotation_row = rowdata, cutree_rows = 2, cutree_cols = 2, annotation_legend = TRUE
+         )
+#dev.off()
+
+pdf("~/Documents/PhD/Manuscripts/Human_Mouse_comparison/Figure 2/R_plots/cluster-heatmap-legend.pdf", height = 13.33, width = 13.33)
+pheatmap(mat= ps_d.clr,
+         show_rownames = FALSE,
+         show_colnames = FALSE, annotation_row = rowdata, cutree_rows = 2, cutree_cols = 2, annotation_legend = TRUE
+         )
+dev.off()
+```
+
+## Average microbiome
+
+
+
+```{r}
+dclust <- hclust(dist(ps_d.clr), method = "complete")
+dclust.order <- dclust$labels[dclust$order]
+```
+
+## Stacked bar of most impactful species
+```{r}
+impact <- names(head(c_dist[order(c_dist, decreasing = TRUE)], 10))
+impact
+```
+
+```{r}
+impact.df <- df_s
+impact.df$Species[which(!(impact.df$Species %in% impact))] <- "Other"
+
+ggbarplot(data = impact.df, x = "Sample", y = "Species_read_fraction", color = "Species", fill = "Species", order = dclust.order)
+```
+
+## Stacked bar of most abundant species
+```{r}
+abundant <- head(data_summary$Species[order(data_summary$All_mean, decreasing = TRUE)], 10)
+```
+
+```{r}
+abundant.df <- df_s
+abundant.df$Species[which(!(abundant.df$Species %in% abundant))] <- "Other"
+
+ggbarplot(data = abundant.df, x = "Sample", y = "Species_read_fraction", color = "Species", fill = "Species")
+```
+
+
+```{r}
+ggbarplot(data = abundant.df, x = "Sample", y = "Species_read_fraction", color = "Species", fill = "Species",
+          order = dclust.order)
+```
+
+
+
+
+## Wild vs Laboratory
+```{r}
+wild_samples <- metadata$Sample[which(metadata$Microbiota_status == "Wild")]
+lab_samples <- metadata$Sample[which(metadata$Microbiota_status == "Laboratory")]
+
+df_wild <- qc_df_s[which(qc_df_s$Sample %in% wild_samples),]
+df_lab <- qc_df_s[which(qc_df_s$Sample %in% lab_samples),]
+
+length(unique(df_wild$Sample))
+length(unique(df_lab$Sample))
+```
+
+
+
+```{r}
+list <- lapply(split(df_wild, f = df_wild$Species), function(x) {
+  SPECIES = unique(x$Species)
+  MEAN = mean(x$Species_read_fraction)
+  PREV = length(which(x$Species_read_fraction >= 0.01)) # prevalence of 0.01% reads
+  PREV_FRAC = PREV / length(unique(df_wild$Sample)) * 100
+  MEAN_OF_PREV = mean(x$Species_read_fraction[which(x$Species_read_fraction >= 0.01)])
+  MAX = max(x$Species_read_fraction)
+  
+  data.frame(Species=SPECIES,
+             All_mean=MEAN,
+             Mean_of_frac=MEAN_OF_PREV,
+             Prevalence_count=PREV,
+             Prevalence_frac=PREV_FRAC,
+             Max=MAX)
+})
+
+data_summary_wild <- do.call("rbind", list)
+data_summary_wild <- merge(x = data_summary_wild, y = taxonomy, all.x = TRUE, by = "Species")
+
+#data_summary_wild[order(data_summary_wild$Prevalence_frac, decreasing = TRUE),]
+data_summary_wild
+taxonomy
+```
+
+```{r}
+list <- lapply(split(df_lab, f = df_lab$Species), function(x) {
+  SPECIES = unique(x$Species)
+  MEAN = mean(x$Species_read_fraction)
+  PREV = length(which(x$Species_read_fraction >= 0.01))
+  PREV_FRAC = PREV / length(unique(df_lab$Sample)) * 100
+  MEAN_OF_PREV = mean(x$Species_read_fraction[which(x$Species_read_fraction >= 0.01)])
+  MAX = max(x$Species_read_fraction)
+  
+  data.frame(Species=SPECIES,
+             All_mean=MEAN,
+             Mean_of_frac=MEAN_OF_PREV,
+             Prevalence_count=PREV,
+             Prevalence_frac=PREV_FRAC,
+             Max=MAX)
+})
+
+data_summary_lab <- do.call("rbind", list)
+data_summary_lab <- merge(x = data_summary_lab, y = taxonomy, all.x = TRUE, by = "Species")
+#data_summary_lab[order(data_summary_lab$Prevalence_frac, decreasing = TRUE),]
+```
+
+```{r}
+unique(wild_vs_lab$Class)
+wild_vs_lab[which(wild_vs_lab$Class == "Campylobacteria"),]
+```
+
+```{r}
+wild_vs_lab <- data.frame(Species=data_summary_wild$Species)
+wild_vs_lab$Lab_prev <- data_summary_lab$Prevalence_frac
+wild_vs_lab$Wild_prev <- data_summary_wild$Prevalence_frac
+wild_vs_lab <- merge(x = wild_vs_lab, y = taxonomy, by = "Species", all.x = TRUE)
+
+wild_vs_lab
+p <- ggscatter(wild_vs_lab, x = "Wild_prev", y = "Lab_prev", 
+          add = "reg.line",conf.int = TRUE, 
+          cor.coef = TRUE
+          ) +
+  stat_regline_equation(label.y = 90)
+p
+```
+
+
+```{r}
+# for correlation plot
+m=0.62
+c=11
+
+wild_vs_lab$delta.prev <- wild_vs_lab$Wild_prev - wild_vs_lab$Lab_prev 
+sd2=2*sd(wild_vs_lab$delta.prev)
+
+# for delta prevalences
+#m = 1
+#c = 0
+
+p <- ggscatter(wild_vs_lab, x = "Wild_prev", y = "Lab_prev", 
+          add = "reg.line",conf.int = TRUE
+          ) +
+  stat_regline_equation() +
+  geom_abline(slope = m, intercept = sd2+c) +
+  geom_abline(slope = m, intercept = -sd2+c)
+p
+
+ggscatter(wild_vs_lab, x = "Wild_prev", y = "Lab_prev", 
+          add = "reg.line",conf.int = TRUE,
+          color = "Phylum", fill = "Phylum",
+          palette = phylum_palette
+          ) +
+  stat_regline_equation() +
+  geom_abline(slope = m, intercept = sd2+c) +
+  geom_abline(slope = m, intercept = -sd2+c) +
+  theme(legend.position = "right")
+
+p <- ggscatter(wild_vs_lab, x = "Wild_prev", y = "Lab_prev", 
+          color = "Phylum", fill = "Phylum",
+          palette = phylum_palette,
+          xlab = "Prevalence in wild mice (%)",
+          ylab = "Prevalence in laboratory mice (%)"
+          ) +
+  geom_abline(slope = m, intercept = sd2+c, linetype = "dashed", color = "grey") +
+  geom_abline(slope = m, intercept = -sd2+c, linetype = "dashed", color = "grey") +
+  theme(legend.position = "right")
+par(pty="s")
+p
+
+#jpeg("~/Documents/PhD/Manuscripts/Human_Mouse_comparison/Figure 2/R_plots/rplot_4-lab_wild_prev_scatter.jpg", height = 350, width = 600)
+#ggpar(p)
+#dev.off()
+```
+
+```{r}
+## correct m
+wild_vs_lab$delta.prev <- wild_vs_lab$Wild_prev - wild_vs_lab$Lab_prev 
+sd2=2*sd(wild_vs_lab$delta.prev)
+
+# for delta prevalences
+m = 1
+c = 0
+
+p <- ggscatter(wild_vs_lab, x = "Wild_prev", y = "Lab_prev", 
+          add = "reg.line",conf.int = TRUE
+          ) +
+  stat_regline_equation() +
+  geom_abline(slope = m, intercept = sd2+c) +
+  geom_abline(slope = m, intercept = -sd2+c)
+p
+
+ggscatter(wild_vs_lab, x = "Wild_prev", y = "Lab_prev", 
+          add = "reg.line",conf.int = TRUE,
+          color = "Phylum", fill = "Phylum",
+          palette = phylum_palette
+          ) +
+  stat_regline_equation() +
+  geom_abline(slope = m, intercept = sd2+c) +
+  geom_abline(slope = m, intercept = -sd2+c) +
+  theme(legend.position = "right")
+
+p <- ggscatter(wild_vs_lab, x = "Wild_prev", y = "Lab_prev", 
+          color = "Phylum", fill = "Phylum",
+          palette = phylum_palette,
+          xlab = "Prevalence in wild mice (%)",
+          ylab = "Prevalence in laboratory mice (%)"
+          ) +
+  geom_abline(slope = m, intercept = sd2+c, linetype = "dashed", color = "grey") +
+  geom_abline(slope = m, intercept = -sd2+c, linetype = "dashed", color = "grey") +
+  theme(legend.position = "right")
+par(pty="s")
+p
+
+#jpeg("~/Documents/PhD/Manuscripts/Human_Mouse_comparison/Figure 2/R_plots/rplot_4-lab_wild_prev_scatter-EDITED_M.jpg", height = 350, width = 500)
+#ggpar(p)
+#dev.off()
+
+pdf(paste0(outdir, "lab_v_wild_prev_scatter.pdf"), height = 4.67, width = 6.67)
+ggpar(p)
+dev.off()
+
+p <- ggscatter(wild_vs_lab, x = "Wild_prev", y = "Lab_prev", 
+               xlab = "Prevalence in wild mice (%)",
+          ylab = "Prevalence in laboratory mice (%)",
+          add = "reg.line",conf.int = TRUE, 
+          cor.coef = TRUE
+          ) #+
+  #stat_regline_equation(label.y = 90)
+p
+
+#jpeg("~/Documents/PhD/Manuscripts/Human_Mouse_comparison/Figure 2/R_plots/rplot_4-lab_wild_CORR.jpg", height = 350, width = 350)
+#ggpar(p)
+#dev.off()
+
+pdf(paste0(outdir, "lab_v_wild_correlation.pdf"), height = 4.67, width = 4.67)
+ggpar(p)
+dev.off()
+
+wild_vs_lab
+```
+
+
+? is this the best method for determining statistical significance or difference between lab and wild mice.
+? MaAsLin2
+
+```{r}
+table(metadata$Age)
+```
+
+
+### differential between wild/lab
+```{r}
+p <- ggbarplot(wild_vs_lab[which(abs(wild_vs_lab$delta.prev) >= sd2),], x = "Species", y = "delta.prev", 
+               sort.val = "asc", sort.by.groups = FALSE,
+               color = "Phylum", fill = "Phylum",
+               palette = phylum_palette,
+               ylab = FALSE) +
+  geom_hline(yintercept = sd2, linetype = "dashed", color = "grey") +
+  geom_hline(yintercept = -sd2, linetype = "dashed", color = "grey")
+ggpar(p, rotate = TRUE, legend = "right", ylab = "LAB <- Delta % Prevalence -> WILD")
+
+#jpeg("~/Documents/PhD/Manuscripts/Human_Mouse_comparison/Figure 2/R_plots/rplot_5-lab_wild_quant.jpg", height = 600, width = 600)
+#ggpar(p, rotate = TRUE, legend = "right", ylab = "LAB <- Delta % Prevalence -> WILD")
+#dev.off()
+
+#pdf(paste0(outdir, "rplot_5-lab_wild_quant.pdf"), height = 8, width = 8)
+#ggpar(p, rotate = TRUE, legend = "right", ylab = "LAB <- Delta % Prevalence -> WILD")
+#dev.off()
+
+p <- ggbarplot(wild_vs_lab, x = "Species", y = "delta.prev", 
+               sort.val = "asc",sort.by.groups = FALSE,
+               color = "Phylum", fill = "Phylum",
+               palette = phylum_palette,
+               ylab = FALSE) +
+  geom_hline(yintercept = sd2, linetype = "dashed", color = "grey") +
+  geom_hline(yintercept = -sd2, linetype = "dashed", color = "grey")
+ggpar(p, rotate = TRUE, legend = "right", ylab = "Delta % Prevalence")
+
+```
+NB: Akkermansia muciniphila, Campylobacteria
+
+```{r}
+length(wild_vs_lab$Species[which(wild_vs_lab$Lab_prev > 0 & wild_vs_lab$Wild_prev > 0)])
+```
+
+
+
+### not in wild / lab
+```{r}
+wild_only <- wild_vs_lab[which(wild_vs_lab$Lab_prev == 0 & wild_vs_lab$Wild_prev > 0),]
+lab_only <- wild_vs_lab[which(wild_vs_lab$Lab_prev > 0 & wild_vs_lab$Wild_prev == 0),]
+
+p <- ggbarplot(rbind(wild_only, lab_only), x = "Species", y = "delta.prev", 
+               sort.val = "asc", sort.by.groups = FALSE,
+               color = "Phylum", fill = "Phylum",
+               palette = phylum_palette)
+ggpar(p, rotate = TRUE)
+```
+
+```{r}
+unique(wild_only$Class)
+length(wild_vs_lab$Species[which(wild_vs_lab$Lab_prev > 0 & wild_vs_lab$Wild_prev > 0)])
+
+length(unique(lab_only$Species))
+sort(table(lab_only$Class))
+
+546/(546+57)*100
+```
+
+## with threshold of 5% 
+```{r}
+wild_only <- wild_vs_lab[which(wild_vs_lab$Lab_prev == 0 & wild_vs_lab$Wild_prev > 0 & abs(wild_vs_lab$delta.prev) >= 5),]
+lab_only <- wild_vs_lab[which(wild_vs_lab$Lab_prev > 0 & wild_vs_lab$Wild_prev == 0 & abs(wild_vs_lab$delta.prev) >= 5),]
+
+
+p <- ggbarplot(rbind(wild_only, lab_only), x = "Species", y = "delta.prev", 
+               sort.val = "desc", sort.by.groups = FALSE,
+               color = "Phylum", fill = "Phylum",
+               palette = phylum_palette
+               )
+ggpar(p, rotate = FALSE, legend = "right", x.text.angle = 90,
+      ylab = "LAB <- Delta % Prevalence -> WILD", xlab = FALSE)
+
+lab_only$inverse_delta <- lab_only$delta.prev*-1
+
+
+
+#pdf("~/Documents/PhD/Manuscripts/Human_Mouse_comparison/Figure 2/R_plots/rplot_5-lab_wild_pa.horizontal.pdf", height = 6, width = 10)
+#ggpar(p, rotate = FALSE, legend = "right", x.text.angle = 90,
+#      ylab = "LAB <- Delta % Prevalence -> WILD", xlab = FALSE)
+#dev.off()
+
+p <- ggbarplot(lab_only, x = "Species", y = "inverse_delta", 
+               sort.val = "asc", sort.by.groups = FALSE,
+               color = "Phylum", fill = "Phylum",
+               palette = phylum_palette,
+               ylab = "Prevalence in lab mice (%)"
+               )
+ggpar(p, rotate = TRUE, legend = "right", 
+      ylab = FALSE, xlab = "Prevalence in lab mice (%)")
+
+pdf(paste0(outdir, "lab_unique.pdf"), height = 8, width = 8)
+ggpar(p, rotate = TRUE, legend = "right", 
+      ylab = FALSE, xlab = "Prevalence in lab mice (%)")
+dev.off()
+
+```
+
+## with threshold of 10% 
+```{r}
+wild_only <- wild_vs_lab[which(wild_vs_lab$Lab_prev == 0 & wild_vs_lab$Wild_prev > 0 & abs(wild_vs_lab$delta.prev) >= 10),]
+lab_only <- wild_vs_lab[which(wild_vs_lab$Lab_prev > 0 & wild_vs_lab$Wild_prev == 0 & abs(wild_vs_lab$delta.prev) >= 10),]
+
+
+p <- ggbarplot(rbind(wild_only, lab_only), x = "Species", y = "delta.prev", 
+               sort.val = "desc", sort.by.groups = FALSE,
+               color = "Phylum", fill = "Phylum",
+               palette = phylum_palette
+               )
+ggpar(p, rotate = FALSE, legend = "right", x.text.angle = 90,
+      ylab = "LAB <- Delta % Prevalence -> WILD", xlab = FALSE)
+
+
+#pdf("~/Documents/PhD/Manuscripts/Human_Mouse_comparison/Figure 2/R_plots/rplot_5-lab_wild_pa.horizontal.pdf", height = 6, width = 10)
+#ggpar(p, rotate = FALSE, legend = "right", x.text.angle = 90,
+#      ylab = "LAB <- Delta % Prevalence -> WILD", xlab = FALSE)
+#dev.off()
+
+```
+
+? sample bias - multiple sampling of the same mouse
+
+```{r}
+p <- ggbarplot(rbind(wild_only, lab_only), x = "Species", y = "delta.prev", 
+               sort.val = "asc", sort.by.groups = FALSE,
+               color = "Phylum", fill = "Phylum",
+               palette = phylum_palette,
+               ylab = FALSE
+               )
+ggpar(p, rotate = TRUE, legend = "right", ylab = "LAB <- Delta % Prevalence -> WILD")
+
+#jpeg("~/Documents/PhD/Manuscripts/Human_Mouse_comparison/Figure 2/R_plots/rplot_5-lab_wild_pa.jpg", height = 600, width = 600)
+#ggpar(p, rotate = TRUE, legend = "right", ylab = "LAB <- Delta % Prevalence -> WILD")
+#dev.off()
+
+#pdf("~/Documents/PhD/Manuscripts/Human_Mouse_comparison/Figure 2/R_plots/rplot_5-lab_wild_pa.pdf", height = 8, width = 8)
+#ggpar(p, rotate = TRUE, legend = "right", ylab = "LAB <- Delta % Prevalence -> WILD")
+#dev.off()
+
+#p <- ggbarplot(rbind(wild_only, lab_only), x = "Species", y = "delta.prev", 
+#               sort.val = "asc", sort.by.groups = FALSE,
+#               color = "Family", fill = "Family")
+#ggpar(p, rotate = TRUE, legend = "right")
+```
+
+
+## Swap lab and wild mice indexes
+```{r}
+wild_vs_lab$delta.prev <- wild_vs_lab$Lab_prev - wild_vs_lab$Wild_prev
+```
+
+### differential between wild/lab
+```{r}
+p <- ggbarplot(wild_vs_lab[which(abs(wild_vs_lab$delta.prev) >= sd2),], x = "Species", y = "delta.prev", 
+               sort.val = "asc", sort.by.groups = FALSE,
+               color = "Phylum", fill = "Phylum",
+               palette = phylum_palette,
+               ylab = FALSE) +
+  geom_hline(yintercept = sd2, linetype = "dashed", color = "grey") +
+  geom_hline(yintercept = -sd2, linetype = "dashed", color = "grey")
+ggpar(p, rotate = TRUE, legend = "right", ylab = "WILD <- Delta % Prevalence -> LAB")
+
+#jpeg("~/Documents/PhD/Manuscripts/Human_Mouse_comparison/Figure 2/R_plots/rplot_5-lab_wild_quant.jpg", height = 600, width = 600)
+#ggpar(p, rotate = TRUE, legend = "right", ylab = "LAB <- Delta % Prevalence -> WILD")
+#dev.off()
+
+pdf(paste0(outdir, "lab_wild_enrichment.pdf"), height = 10, width = 8)
+ggpar(p, rotate = TRUE, legend = "right", ylab = "WILD <- Delta % Prevalence -> LAB")
+dev.off()
+
+p <- ggbarplot(wild_vs_lab, x = "Species", y = "delta.prev", 
+               sort.val = "asc",sort.by.groups = FALSE,
+               color = "Phylum", fill = "Phylum",
+               palette = phylum_palette,
+               ylab = FALSE) +
+  geom_hline(yintercept = sd2, linetype = "dashed", color = "grey") +
+  geom_hline(yintercept = -sd2, linetype = "dashed", color = "grey")
+ggpar(p, rotate = TRUE, legend = "right", ylab = "Delta % Prevalence")
+
+```
+NB: Akkermansia muciniphila, Campylobacteria
+
+
+
+### not in wild / lab
+```{r}
+wild_only <- wild_vs_lab[which(wild_vs_lab$Lab_prev == 0 & wild_vs_lab$Wild_prev > 0),]
+lab_only <- wild_vs_lab[which(wild_vs_lab$Lab_prev > 0 & wild_vs_lab$Wild_prev == 0),]
+
+p <- ggbarplot(rbind(wild_only, lab_only), x = "Species", y = "delta.prev", 
+               sort.val = "asc", sort.by.groups = FALSE,
+               color = "Phylum", fill = "Phylum",
+               palette = phylum_palette)
+ggpar(p, rotate = TRUE)
+```
+
+```{r}
+unique(wild_only$Class)
+sort(table(lab_only$Class))
+```
+
+## with threshold of 5% 
+```{r}
+wild_only <- wild_vs_lab[which(wild_vs_lab$Lab_prev == 0 & wild_vs_lab$Wild_prev > 0 & abs(wild_vs_lab$delta.prev) >= 5),]
+lab_only <- wild_vs_lab[which(wild_vs_lab$Lab_prev > 0 & wild_vs_lab$Wild_prev == 0 & abs(wild_vs_lab$delta.prev) >= 5),]
+
+
+p <- ggbarplot(rbind(wild_only, lab_only), x = "Species", y = "delta.prev", 
+               sort.val = "desc", sort.by.groups = FALSE,
+               color = "Phylum", fill = "Phylum",
+               palette = phylum_palette
+               )
+ggpar(p, rotate = FALSE, legend = "right", x.text.angle = 90,
+      ylab = "LAB <- Delta % Prevalence -> WILD", xlab = FALSE)
+
+
+#pdf("~/Documents/PhD/Manuscripts/Human_Mouse_comparison/Figure 2/R_plots/rplot_5-lab_wild_pa.horizontal.pdf", height = 6, width = 10)
+#ggpar(p, rotate = FALSE, legend = "right", x.text.angle = 90,
+#      ylab = "LAB <- Delta % Prevalence -> WILD", xlab = FALSE)
+#dev.off()
+
+```
+
+## with threshold of 10% 
+```{r}
+wild_only <- wild_vs_lab[which(wild_vs_lab$Lab_prev == 0 & wild_vs_lab$Wild_prev > 0 & abs(wild_vs_lab$delta.prev) >= 10),]
+lab_only <- wild_vs_lab[which(wild_vs_lab$Lab_prev > 0 & wild_vs_lab$Wild_prev == 0 & abs(wild_vs_lab$delta.prev) >= 10),]
+
+
+p <- ggbarplot(rbind(wild_only, lab_only), x = "Species", y = "delta.prev", 
+               sort.val = "desc", sort.by.groups = FALSE,
+               color = "Phylum", fill = "Phylum",
+               palette = phylum_palette
+               )
+ggpar(p, rotate = FALSE, legend = "right", x.text.angle = 30,
+      ylab = "% Prevalence (Lab)", xlab = FALSE)
+
+
+pdf(paste0(outdir, "lab_wild_only_horizontal.pdf"), height = 6, width = 10)
+ggpar(p, rotate = FALSE, legend = "right", x.text.angle = 30,
+      ylab = "% Prevalence (Lab)", xlab = FALSE)
+dev.off()
+
+```
+
+? sample bias - multiple sampling of the same mouse
+? remove hybrid mice
+
+```{r}
+p <- ggbarplot(rbind(wild_only, lab_only), x = "Species", y = "delta.prev", 
+               sort.val = "asc", sort.by.groups = FALSE,
+               color = "Phylum", fill = "Phylum",
+               palette = phylum_palette,
+               ylab = FALSE
+               )
+ggpar(p, rotate = TRUE, legend = "right", ylab = "LAB <- Delta % Prevalence -> WILD")
+
+#jpeg("~/Documents/PhD/Manuscripts/Human_Mouse_comparison/Figure 2/R_plots/rplot_5-lab_wild_pa.jpg", height = 600, width = 600)
+#ggpar(p, rotate = TRUE, legend = "right", ylab = "LAB <- Delta % Prevalence -> WILD")
+#dev.off()
+
+#pdf("~/Documents/PhD/Manuscripts/Human_Mouse_comparison/Figure 2/R_plots/rplot_5-lab_wild_pa.pdf", height = 8, width = 8)
+#ggpar(p, rotate = TRUE, legend = "right", ylab = "LAB <- Delta % Prevalence -> WILD")
+#dev.off()
+
+#p <- ggbarplot(rbind(wild_only, lab_only), x = "Species", y = "delta.prev", 
+#               sort.val = "asc", sort.by.groups = FALSE,
+#               color = "Family", fill = "Family")
+#ggpar(p, rotate = TRUE, legend = "right")
+```
+
+
+
+## Multivariate analyses with MaAsLin2
+
+```{r}
+library(Maaslin2)
+```
+
+```{r}
+library(tibble)
+md <- metadata[which(complete.cases(metadata)),]  # qc whole metadata df
+d <- data[which(data$Sample %in% md$Sample),]
+otu <- dcast(d, Species ~ Sample)
+otu[is.na(otu)] <- 0
+rownames(otu) <- otu$Species
+otu_m <- as.matrix(otu[,c(2:ncol(otu))])
+
+ps_d.czm <- cmultRepl(X = t(otu_m), label = 0, method = "CZM")
+ps_d.clr <- t(apply(ps_d.czm, 1, function(x){log(x/gm_mean(x))}))
+
+dim(ps_d.clr)
+dim(metadata)
+
+#otu_m[c(1:5),c(1:5)]
+#t(otu_m[c(1:5),c(1:5)])
+
+t_otu_m <- t(otu_m)
+
+otu_df <- as.data.frame(t_otu_m)
+
+metadata_in <- column_to_rownames(metadata, var = "Sample")
+
+#md2 <- as.data.frame(metadata)
+#row.names(md2)
+
+#metadata_in <- metadata
+#row.names(metadata_in) <- metadata_in$Sample
+#metadata_in
+```
+
+```{r}
+lab_wild <- Maaslin2(input_data = ps_d.clr, input_metadata = metadata_in, 
+         output = "~/Documents/PhD/Maaslin2/", 
+         min_abundance = 0.01,
+         normalization = "NONE",
+         transform = "NONE",
+         fixed_effects = c("Microbiota_status")
+         )
+lab_wild$results[order(lab_wild$results$coef),]
+```
+
+```{r}
+ggscatter(lab_wild$results, x = "coef", y = "qval") + yscale("log10")
+```
+
+```{r}
+unique(m_institute$results$value)
+m_institute <- Maaslin2(input_data = ps_d.clr, input_metadata = metadata_in, 
+         output = "~/Documents/PhD/Maaslin2/", 
+         min_abundance = 0.01,
+         normalization = "NONE",
+         transform = "NONE",
+         fixed_effects = c("Institute")
+         )
+m_institute
+ih1000 <- head(m_institute$results[order(m_institute$results$coef, decreasing = ),], 1000)
+```
+
+
+```{r}
+ih1000[,c(1,3,4,7,8)]
+```
+
+```{r}
+
+taxonomy
+library(stringr)
+taxonomy$maaslin2 <- str_replace_all(taxonomy$Species, "[^[:alnum:]]", ".")
+
+test <- gsub(pattern = " ", replacement = ".", x = taxonomy$Species) %>% gsub(pattern = "-", replacement = ".")
+
+m_institute$results$maaslin2 <- gsub(pattern = "^X", replacement = "", m_institute$results$feature)
+out_df <- m_institute$results
+
+length(which(!test %in% out_df$feature))
+
+
+merge(x = out_df, y = taxonomy, by = "maaslin2")
+
+unique(out_df$maaslin2)
+unique(taxonomy$maaslin2)
+```
+
+
+
+```{r}
+m_strain <- Maaslin2(input_data = ps_d.clr, input_metadata = metadata_in, 
+         output = "~/Documents/PhD/Maaslin2/strain", 
+         min_abundance = 0.01,
+         normalization = "NONE",
+         transform = "NONE",
+         fixed_effects = c("Strain")
+         )
+m_strain$results
+m_strain$results[order(abs(m_strain$results$coef), decreasing = TRUE),]
+```
+
+```{r}
+sort(table(metadata$Strain))
+```
+
+
+```{r}
+ps_d.czm <- cmultRepl(X = t(otu_m), label = 0, method = "CZM")
+ps_d.clr <- t(apply(ps_d.czm, 1, function(x){log(x/gm_mean(x))}))
+
+aitch <- vegdist(x = ps_d.clr, method = "euc", binary = FALSE)
+d <- cmdscale(aitch, k = 2, eig = TRUE)
+points <- as.data.frame(d$points)
+colnames(points) <- c("x", "y")
+points$Sample <- row.names(points)
+df <- merge(x = points, y = metadata, by = "Sample", all.x = TRUE)
+
+aitch.m <- as.matrix(aitch)
+```
+
+```{r}
+qc_df_s
+aitch.m
+ps_d.clr[c(1:5),c(1:5)]
+metadata
+```
+
+# background
+```{r}
+
+m_back <- Maaslin2(input_data = ps_d.clr, input_metadata = metadata_in, 
+         output = "~/Documents/PhD/Maaslin2/background", 
+         min_abundance = 0.01,
+         normalization = "NONE",
+         transform = "NONE",
+         fixed_effects = c("Genetic_background")
+         )
+gen_back <- m_back$results
+
+gen_back
+
+```
+
+```{r}
+list <- split(gen_back, f = gen_back$value)
+
+list[[1]]
+```
+
+
+```{r}
+metadata_in[which(metadata_in$Genetic_background == "C57BL/6"),]
+metadata_in[which(metadata_in$Genetic_background == "NOD"),]
+```
+
+```{r}
+
+#strain_metadata <- metadata_in[which(metadata_in$Strain == "C57BL/6J" | metadata_in$Strain == "C57BL/6N" | metadata_in$Strain == "C57BL/6NTac"),]
+strain_j <- metadata_in[which(metadata_in$Strain == "C57BL/6J" & metadata_in$Microbiota_status != "Wild"),]
+strain_t <- metadata_in[which(metadata_in$Strain == "C57BL/6N" | metadata_in$Strain == "C57BL/6NTac" & metadata_in$Microbiota_status != "Wild"),]
+strain_j$Strain_TvJ <- "j"
+strain_t$Strain_TvJ <- "t"
+
+Strain_c57 <- rbind(strain_j, strain_t)
+Strain_c57
+
+m_strain_c57 <- Maaslin2(input_data = ps_d.clr, input_metadata = Strain_c57, 
+         output = "~/Documents/PhD/Maaslin2/strainJvT", 
+         min_abundance = 0.01,
+         normalization = "NONE",
+         transform = "NONE",
+         fixed_effects = c("Strain_TvJ")
+         )
+
+
+C57BL_JvT <- m_strain_c57$results
+```
+
+Thoughts for analyses: 
+
+```{r}
+C57BL_JvT[order(abs(C57BL_JvT$coef), decreasing = TRUE),]
+```
+
+### volcano plot
+
+```{r}
+library(magrittr)
+C57BL_JvT$species_index <- gsub(pattern = "^X", replacement = "", C57BL_JvT$feature) %>% gsub(pattern = "_", replacement = ".")
+taxonomy$species_index <- str_replace_all(taxonomy$Species, "[^[:alnum:]]", ".")
+
+C57BL_JvT <- merge(x = C57BL_JvT, y = taxonomy, by = "species_index", all.x = TRUE)
+```
+
+
+```{r}
+sig <- C57BL_JvT[C57BL_JvT$qval <= 0.05,]
+sig$qval_t <- -log10(sig$qval)
+
+rd2 <- C57BL_JvT
+rd2$qval_t <- -log10(rd2$qval)
+rd2 <- rd2[order(abs(rd2$coef), decreasing = TRUE),]
+#ggscatter(sig, x = "coef", y = "qval_t")
+#ggscatter(rd2, x = "coef", y = "qval_t")
+```
+
+
+
+
+```{r}
+library(ggrepel)
+rd2$Signif <- NA
+rd2$Signif[rd2$qval <= 0.05 & rd2$coef > 0] <- "C57BL/6N"
+rd2$Signif[rd2$qval <= 0.05 & rd2$coef < 0] <- "C57BL/6J"
+
+signif_palette <- c("NO"="lightgrey", "C57BL/6N"="#80b1d3", "C57BL/6J"="#fb8072")
+
+rd2$Phylum_COL <- "NO"
+rd2$Phylum_COL[rd2$qval<= 0.5] <- rd2$Phylum[rd2$qval<= 0.5]
+
+rd2$Label <- NA
+rd2$Label[head(which(rd2$qval< 0.5 & abs(rd2$coef) > 2),6)] <- rd2$feature[head(which(rd2$qval< 0.5 & abs(rd2$coef) > 2), 6)]
+
+#rd2$Label
+phylum_palette_VOLCANO <- c(phylum_palette)
+```
+
+```{r}
+p <- ggscatter(rd2[rd2$qval < 0.5,], x = "coef", y = "qval_t", 
+               ylab = "Q-value", 
+               xlab = "B6J <-- Effect size --> B6N",
+               color = "Phylum", 
+          palette = phylum_palette, 
+          label = "Label", repel = TRUE)
+ggpar(p, legend = "right")
+
+#p <- ggscatter(rd2, x = "coef", y = "qval_t", color = "Phylum_COL", 
+#          palette = phylum_palette_VOLCANO, 
+#          label = "Label", repel = TRUE)
+#ggpar(p, legend = "right")
+
+```
+
+
+```{r}
+pdf(paste0(outdir, "volcano_CBLA-JvT_phylum_labs.pdf"), height = 8, width = 10)
+ggpar(p, legend = "right")
+dev.off()
+
+
+
+ggscatter(rd2, x = "coef", y = "qval_t", color = "Signif", 
+          palette = signif_palette, 
+          label = "Label", repel = TRUE)
+
+pdf(paste0(outdir, "volcano_CBLA-JvT_strain_labs.pdf"), height = 4, width = 5)
+ggscatter(rd2, x = "coef", y = "qval_t", color = "Signif", 
+          palette = signif_palette, 
+          label = "Label", repel = TRUE)
+dev.off()
+
+```
+
+```{r}
+
+
+rd2$Label <- NA
+rd2$Label[rd2$qval< 0.5 & abs(rd2$coef) > 2.5 ] <- rd2$feature[rd2$qval< 0.5 & abs(rd2$coef) > 2.5 ]
+rd2$
+rd2$feature[rd2$qval< 0.5 & abs(rd2$coef) > 2 ]
+```
+
+
+
+```{r}
+t <- C57BL_JvT[C57BL_JvT$coef > 0,]
+t[order(t$coef, decreasing = TRUE)]
+```
+
+
+```{r}
+table(metadata_in$Vendor_name)
+```
+
+```{r}
+apply(otu_m, 2, function(x) {length(which(x >= 0.01))})
+
+otu_m[c(1:5), c(1:5)]
+```
+
+```{r}
+man
+```
+
+
+```{r}
+instute_data <- read_tsv(file = "~/Documents/PhD/Maaslin2/institute/significant_results.tsv")
+```
+
+```{r}
+instute_data
+```
+
+```{r}
+#min(instute_data$coef)
+instute_data[order(abs(instute_data$coef), decreasing = TRUE),]
+```
+
+```{r}
+instute_data[order(abs(instute_data$coef), decreasing = TRUE),]
+top_coef_institute <- instute_data[abs(instute_data$coef) >= 5,]
+```
+
+```{r}
+tci_species <- sort(unique(top_coef_institute$feature))
+
+instute_data[which(instute_data$feature %in% tci_species),]
+
+list <- split(top_coef_institute, f = top_coef_institute$value)
+unlist(lapply(list, nrow))
+
+
+library(reshape2)
+
+institute_by_species <- dcast(instute_data[which(instute_data$feature %in% tci_species),c(2,3,4)], value ~ feature, value.var = "coef", fill = 0)
+institute_by_species <- tibble::column_to_rownames(institute_by_species, var = "value")
+hclust(as.matrix(institute_by_species))
+
+m <- as.matrix(institute_by_species)
+rets <- m[c(1:5),c(1:5)]
+dist(rets)
+hclust(dist(rets))
+
+
+pheatmap(m, show_colnames = FALSE, show_rownames = FALSE)
+```
+
+```{r}
+head(sort(unlist(lapply(split(instute_data, f = instute_data$feature), function(x) { sum(abs(x$coef)) })), decreasing = TRUE))
+```
+
+
+```{#r#}
+
+rowdata <- data.frame(Origin=metadata$Microbiota_status, 
+                      Genotype=metadata$Strain, 
+                      Study=metadata$Study, 
+                      Institute=metadata$Institute, 
+                      Vendor=metadata$Vendor_long)
+row.names(rowdata) <- metadata$Sample
+
+colnames(rowdata)[c(1,2,5)] <- c("Lab vs Wild", "Mouse strain", "Vendor")
+```
+
+
+
+## compare data to an "Average" sample
+
+
+## 5 or more samples
+```{r}
+library(Maaslin2)
+library(tibble)
+
+md <- metadata[which(metadata$Treatment == "Control" & 
+        metadata$Genetic_background == "C57BL/6" &
+        complete.cases(metadata$Institute)),]
+
+
+
+
+
+control_institute_metadata <- md[which(md$Institute %in% names(table(md$Institute))[table(md$Institute) >= 5]),]
+d <- data[which(data$Sample %in% control_institute_metadata$Sample),]
+
+otu <- dcast(d, Species ~ Sample)
+otu[is.na(otu)] <- 0
+#otu[c(1:5), c(1:5)]
+rownames(otu) <- otu$Species
+otu_m <- as.matrix(otu[,c(2:ncol(otu))])
+
+
+av_mb <- as.matrix(apply(otu_m, 1, median))
+colnames(av_mb) <- "a_Average"
+
+otu_m_a <- cbind(av_mb, otu_m)
+
+ps_d.czm <- cmultRepl(X = t(otu_m_a), label = 0, method = "CZM")
+ps_d.clr <- t(apply(ps_d.czm, 1, function(x){log(x/gm_mean(x))}))
+
+#dim(ps_d.clr)
+#dim(metadata)
+
+#t_otu_m <- t(otu_m)
+
+#otu_df <- as.data.frame(t_otu_m)
+
+
+## metadata
+head(control_institute_metadata)
+
+av_md <- t(data.frame(Average=rep("a_Average", ncol(control_institute_metadata))))
+colnames(av_md) <- colnames(control_institute_metadata)
+
+control_institute_metadata <- rbind(control_institute_metadata, av_md)
+rownames(control_institute_metadata) <- c()
+
+metadata_in <- column_to_rownames(control_institute_metadata, var = "Sample")
+#metadata_in <- column_to_rownames(metadata, var = "Sample")
+
+length(unique(metadata_in$Institute))
+
+#md2 <- as.data.frame(metadata)
+#row.names(md2)
+
+#metadata_in <- metadata
+#row.names(metadata_in) <- metadata_in$Sample
+#metadata_in
+```
+
+```{r}
+control_institute <- Maaslin2(input_data = ps_d.clr, input_metadata = metadata_in, 
+         output = "~/Documents/PhD/Maaslin2/Institute_controlled", 
+         min_abundance = 0.01,
+         normalization = "NONE",
+         transform = "NONE",
+         fixed_effects = c("Institute")
+         )
+institute_data <- control_institute$results
+head(institute_data)
+```
+
+```{r}
+institute_data[order(abs(institute_data$coef), decreasing = TRUE),]
+```
+
+```{r}
+#instute_data[order(abs(instute_data$coef), decreasing = TRUE),]
+#top_coef_institute <- instute_data[abs(instute_data$coef) >= 5,]
+```
+
+```{#r}
+tci_species <- sort(unique(top_coef_institute$feature))
+
+instute_data[which(instute_data$feature %in% tci_species),]
+
+list <- split(top_coef_institute, f = top_coef_institute$value)
+unlist(lapply(list, nrow))
+
+
+library(reshape2)
+
+institute_by_species <- dcast(instute_data[which(instute_data$feature %in% tci_species),c(2,3,4)], value ~ feature, value.var = "coef", fill = 0)
+institute_by_species <- tibble::column_to_rownames(institute_by_species, var = "value")
+hclust(as.matrix(institute_by_species))
+
+m <- as.matrix(institute_by_species)
+rets <- m[c(1:5),c(1:5)]
+dist(rets)
+hclust(dist(rets))
+
+
+pheatmap(m, show_colnames = FALSE, show_rownames = FALSE)
+```
+
+```{r}
+top20species <- names(head(sort(unlist(lapply(split(institute_data, f = institute_data$feature), function(x) { sum(abs(x$coef)) })), decreasing = TRUE), 20))
+```
+
+```{r}
+#institute_data[which(institute_data$feature %in% top20species),]
+
+institute_by_species <- dcast(institute_data[which(institute_data$feature %in% top20species),], name ~ feature, value.var = "coef", fill = 0)
+institute_by_species <- tibble::column_to_rownames(institute_by_species, var = "name")
+row.names(institute_by_species) <- paste0("Institute", seq(1,nrow(institute_by_species)))
+
+#substring(gsub(pattern = "^Institute", replacement = "", rownames(institute_by_species)), 1,20)
+#institute_by_species
+#paste0("Institute", seq(1,20))
+pheatmap(mat= as.matrix(institute_by_species), show_rownames = TRUE, show_colnames = TRUE, na_col = "grey")
+
+pdf(paste0(outdir, "institute_heatmap.pdf"), height = 6, width = 8)
+pheatmap(mat= as.matrix(institute_by_species), show_rownames = TRUE, show_colnames = TRUE, na_col = "grey")
+dev.off()
+
+#hclust(as.matrix(institute_by_species))
+```
+
+
+# MaAsLin2 top 20 abundant species
+```{r}
+abun_20$Species
+
+abun_20$Species_ed <- gsub(pattern = " ", replacement = ".", abun_20$Species) %>% gsub(pattern = "-", replacement = ".")
+
+#institute_data$feature
+
+#dcast(institute_data[which(institute_data$feature %in% abun_20$Species_ed),], name ~ feature, value.var = "coef", fill = 0)
+
+
+institute_by_species_abun <- dcast(institute_data[which(institute_data$feature %in% abun_20$Species_ed),], name ~ feature, value.var = "coef", fill = 0)
+institute_by_species_abun <- tibble::column_to_rownames(institute_by_species_abun, var = "name")
+row.names(institute_by_species_abun) <- paste0("Institute", seq(1,nrow(institute_by_species_abun)))
+
+institute_by_species_abun
+
+#substring(gsub(pattern = "^Institute", replacement = "", rownames(institute_by_species)), 1,20)
+#institute_by_species
+#paste0("Institute", seq(1,20))
+pheatmap(mat= as.matrix(institute_by_species_abun), show_rownames = TRUE, show_colnames = TRUE, na_col = "grey")
+
+pdf(paste0(outdir, "institute_heatmap.pdf"), height = 6, width = 8)
+pheatmap(mat= as.matrix(institute_by_species), show_rownames = TRUE, show_colnames = TRUE, na_col = "grey")
+dev.off()
+```
+
+```{r}
+d_abun <- d[d$Species %in% abun_20$Species,]
+
+otu_abun <- dcast(d_abun, Species ~ Sample)
+otu_abun[is.na(otu_abun)] <- 0
+#otu[c(1:5), c(1:5)]
+rownames(otu_abun) <- otu_abun$Species
+otu_m_abun <- as.matrix(otu_abun[,c(2:ncol(otu_abun))])
+
+ps_d.czm_abun <- cmultRepl(X = t(otu_m_abun), label = 0, method = "CZM")
+ps_d.clr_abun <- t(apply(ps_d.czm_abun, 1, function(x){log(x/gm_mean(x))}))
+
+ps_abun_df <- as.data.frame(ps_d.clr_abun)
+ps_abun_df$Sample <- row.names(ps_d.clr_abun)
+
+ps_abun_df
+
+md_df <- data.frame(Sample=control_institute_metadata$Sample, Institute=control_institute_metadata$Institute)
+
+md_ps <- merge(ps_abun_df, md_df, by = "Sample")
+
+list<- lapply(split(md_ps, f = md_ps$Institute), function(x) {
+  apply(x[,c(2:21)], 2, mean)
+})
+
+abun_in <- do.call("rbind", list)
+
+pheatmap(mat= as.matrix(abun_in), show_rownames = FALSE, show_colnames = TRUE, na_col = "grey")
+
+```
+
+```{r}
+row.names(abun_in)
+```
+
+# studies with 10 or more mice.
+
+```{r}
+library(Maaslin2)
+library(tibble)
+
+md <- metadata[which(metadata$Treatment == "Control" & 
+        metadata$Genetic_background == "C57BL/6" &
+        complete.cases(metadata$Institute)),]
+
+
+#sort(table(md$Institute), decreasing = TRUE)
+
+control_institute_metadata_10 <- md[which(md$Institute %in% names(table(md$Institute))[table(md$Institute) >= 10]),]
+d_10 <- data[which(data$Sample %in% control_institute_metadata_10$Sample),]
+
+otu_10 <- dcast(d_10, Species ~ Sample)
+otu_10[is.na(otu_10)] <- 0
+#otu[c(1:5), c(1:5)]
+rownames(otu_10) <- otu_10$Species
+otu_m_10 <- as.matrix(otu_10[,c(2:ncol(otu_10))])
+
+
+av_mb_10 <- as.matrix(apply(otu_m_10, 1, median))
+colnames(av_mb_10) <- "a_Average"
+
+otu_m_a_10 <- cbind(av_mb_10, otu_m_10)
+
+ps_d.czm_10 <- cmultRepl(X = t(otu_m_a_10), label = 0, method = "CZM")
+ps_d.clr_10 <- t(apply(ps_d.czm_10, 1, function(x){log(x/gm_mean(x))}))
+
+
+## metadata
+av_md_10 <- t(data.frame(Average=rep("a_Average", ncol(control_institute_metadata_10))))
+colnames(av_md_10) <- colnames(control_institute_metadata_10)
+
+control_institute_metadata_10 <- rbind(control_institute_metadata_10, av_md_10)
+rownames(control_institute_metadata_10) <- c()
+
+metadata_in_10 <- column_to_rownames(control_institute_metadata_10, var = "Sample")
+#metadata_in <- column_to_rownames(metadata, var = "Sample")
+
+length(unique(metadata_in_10$Institute))
+
+#md2 <- as.data.frame(metadata)
+#row.names(md2)
+
+#metadata_in <- metadata
+#row.names(metadata_in) <- metadata_in$Sample
+#metadata_in
+```
+
+```{r}
+control_institute_10 <- Maaslin2(input_data = ps_d.clr_10, input_metadata = metadata_in_10, 
+         output = "~/Documents/PhD/Maaslin2/Institute_controlled_10", 
+         min_abundance = 0.01,
+         normalization = "NONE",
+         transform = "NONE",
+         fixed_effects = c("Institute")
+         )
+institute_data_10 <- control_institute_10$results
+head(institute_data_10)
+```
+
+```{r}
+institute_data_10[order(abs(institute_data_10$coef), decreasing = TRUE),]
+```
+
+```{#r}
+tci_species <- sort(unique(top_coef_institute$feature))
+
+instute_data[which(instute_data$feature %in% tci_species),]
+
+list <- split(top_coef_institute, f = top_coef_institute$value)
+unlist(lapply(list, nrow))
+
+
+library(reshape2)
+
+institute_by_species <- dcast(instute_data[which(instute_data$feature %in% tci_species),c(2,3,4)], value ~ feature, value.var = "coef", fill = 0)
+institute_by_species <- tibble::column_to_rownames(institute_by_species, var = "value")
+hclust(as.matrix(institute_by_species))
+
+m <- as.matrix(institute_by_species)
+rets <- m[c(1:5),c(1:5)]
+dist(rets)
+hclust(dist(rets))
+
+
+pheatmap(m, show_colnames = FALSE, show_rownames = FALSE)
+```
+
+```{r}
+top20species_10 <- names(head(sort(unlist(lapply(split(institute_data_10, f = institute_data_10$feature), function(x) { sum(abs(x$coef)) })), decreasing = TRUE), 20))
+```
+
+```{r}
+#institute_data[which(institute_data$feature %in% top20species),]
+
+institute_by_species_10 <- dcast(institute_data_10[which(institute_data_10$feature %in% top20species_10),], name ~ feature, value.var = "coef", fill = 0)
+institute_by_species_10 <- tibble::column_to_rownames(institute_by_species_10, var = "name")
+row.names(institute_by_species_10) <- paste0("Institute", seq(1,nrow(institute_by_species_10)))
+
+#substring(gsub(pattern = "^Institute", replacement = "", rownames(institute_by_species)), 1,20)
+#institute_by_species
+#paste0("Institute", seq(1,20))
+pheatmap(mat= as.matrix(institute_by_species_10), show_rownames = TRUE, show_colnames = TRUE, na_col = "grey")
+
+#pdf(paste0(outdir, "institute_heatmap.pdf"), height = 6, width = 8)
+##pheatmap(mat= as.matrix(institute_by_species_10), show_rownames = TRUE, show_colnames = TRUE, na_col = "grey")
+#dev.off()
+
+#hclust(as.matrix(institute_by_species))
+```
+
+
+# MaAsLin2 top 20 abundant species
+```{r}
+abun_20_10 <- abun_20
+abun_20_10$Species
+
+abun_20_10$Species_ed <- gsub(pattern = " ", replacement = ".", abun_20_10$Species) %>% gsub(pattern = "-", replacement = ".")
+
+#institute_data$feature
+
+#dcast(institute_data[which(institute_data$feature %in% abun_20$Species_ed),], name ~ feature, value.var = "coef", fill = 0)
+
+
+institute_by_species_abun_10 <- dcast(institute_data_10[which(institute_data_10$feature %in% abun_20_10$Species_ed),], name ~ feature, value.var = "coef", fill = 0)
+institute_by_species_abun_10 <- tibble::column_to_rownames(institute_by_species_abun_10, var = "name")
+row.names(institute_by_species_abun_10) <- paste0("Institute", seq(1,nrow(institute_by_species_abun_10)))
+
+institute_by_species_abun_10
+
+#substring(gsub(pattern = "^Institute", replacement = "", rownames(institute_by_species)), 1,20)
+#institute_by_species
+#paste0("Institute", seq(1,20))
+pheatmap(mat= as.matrix(institute_by_species_abun_10), show_rownames = TRUE, show_colnames = TRUE, na_col = "grey")
+
+#pdf(paste0(outdir, "institute_heatmap.pdf"), height = 6, width = 8)
+#pheatmap(mat= as.matrix(institute_by_species_10), show_rownames = TRUE, show_colnames = TRUE, na_col = "grey")
+#dev.off()
+```
+
+```{r}
+d_abun_10 <- d_10[d_10$Species %in% abun_20_10$Species,]
+
+otu_abun_10 <- dcast(d_abun_10, Species ~ Sample)
+otu_abun_10[is.na(otu_abun_10)] <- 0
+#otu[c(1:5), c(1:5)]
+rownames(otu_abun_10) <- otu_abun_10$Species
+otu_m_abun_10 <- as.matrix(otu_abun_10[,c(2:ncol(otu_abun_10))])
+
+ps_d.czm_abun_10 <- cmultRepl(X = t(otu_m_abun_10), label = 0, method = "CZM")
+ps_d.clr_abun_10 <- t(apply(ps_d.czm_abun_10, 1, function(x){log(x/gm_mean(x))}))
+
+ps_abun_df_10 <- as.data.frame(ps_d.clr_abun_10)
+ps_abun_df_10$Sample <- row.names(ps_d.clr_abun_10)
+
+ps_abun_df_10
+
+md_df_10 <- data.frame(Sample=control_institute_metadata_10$Sample, Institute=control_institute_metadata_10$Institute)
+
+md_ps_10 <- merge(ps_abun_df_10, md_df_10, by = "Sample")
+
+list_10 <- lapply(split(md_ps_10, f = md_ps_10$Institute), function(x) {
+  apply(x[,c(2:21)], 2, mean)
+})
+
+abun_in_10 <- do.call("rbind", list_10)
+
+pheatmap(mat= as.matrix(abun_in_10), show_rownames = FALSE, show_colnames = TRUE, na_col = "grey")
+
+```
+
+```{r}
+row.names(abun_in_10)
+
+institute_names_short <- c("Beijing Genome Institute",
+  "Brown University",
+  "California State University",
+  "Charles River Laboratories",
+  "Fox Chase Cancer Center",
+  "Gladstone Institute",
+  "Harvard Medical School",
+  "Helmholtz Centre for Infection Research",
+  "Huazhong Agricultural University",
+  "Janvier Labs",
+  "Kyung Hee University",
+  "Shanghai Jiao Tong University",
+  "Nanyang Technological University",
+  "National Institutes of Health",
+  "Pfizer",
+  "QIMR Berghofer",
+  "Québec Heart and Lung Institute",
+  "Sloan Kettering & Weill Cornell",
+  "Riken Yokohoma",
+  "Taconic Biosciences",
+  "The Jackson Laboratory",
+  "University of Chicago",
+  "University of Geneva",
+  "University of Georgia",
+  "Southwestern Medical Center",
+  "Wallenberg Laboratory",
+  "Weizmann Institute of Science"
+  )
+
+#abun_in_10
+```
+
+```{r}
+row.names(abun_in_10) <- institute_names_short
+pheatmap(mat= as.matrix(abun_in_10), show_rownames = TRUE, show_colnames = TRUE, na_col = "grey", angle_col = 90)
+
+pdf(paste0(outdir, "read_frac_heatmap-top20abun.pdf"), width = 10, height = 8)
+pheatmap(mat= as.matrix(abun_in_10), show_rownames = TRUE, show_colnames = TRUE, na_col = "grey", angle_col = 90)
+dev.off()
+```
+
+```{r}
+
+nrow(abun_in_10)
+length(institute_names_short)
+
+length(unique(md_ps_10$Sample))
+
+(md_ps_10$Institute == "National Institute of Diabetes and Digestive and Kidney Diseases, National Institutes of Health")
+length(md_ps_10$`CAG-485 sp002362485`[md_ps_10$Institute == "The Jackson Laboratory"])
+summary(md_ps_10$`CAG-485 sp002362485`[md_ps_10$Institute == "The Jackson Laboratory"])
+length(md_ps_10$`CAG-485 sp002362485`[(md_ps_10$Institute == "National Institute of Diabetes and Digestive and Kidney Diseases, National Institutes of Health")])
+
+unlist(lapply(list_10, function(x) { x[5]}))
+
+jackson <- d_abun_10[which(d_abun_10$Sample %in% md_ps_10$Sample[md_ps_10$Institute == "The Jackson Laboratory"]),]
+summary(jackson$Species_read_fraction[jackson$Species == "CAG-485 sp002362485"])
+
+NIH <- d_abun_10[which(d_abun_10$Sample %in% md_ps_10$Sample[md_ps_10$Institute == "National Institute of Diabetes and Digestive and Kidney Diseases, National Institutes of Health"]),]
+summary(NIH$Species_read_fraction[NIH$Species == "CAG-485 sp002362485"])
+
+```
+
+
+
+
+# remove all non standard metadata
+
+```{r}
+library(Maaslin2)
+library(tibble)
+
+md <- metadata[which(metadata$Treatment == "Control" & 
+        metadata$Genetic_background == "C57BL/6" &
+          metadata$GI_tissue == "Faeces" &
+          metadata$Diet == "Chow" &
+          metadata$Genotype == "Wildtype" &
+        complete.cases(metadata$Institute)),]
+
+#sort(table(md$Institute), decreasing = T)
+nrow(md)
+control_institute_metadata_10 <- md[which(md$Institute %in% names(table(md$Institute))[table(md$Institute) >= 10]),]
+d_10 <- data[which(data$Sample %in% control_institute_metadata_10$Sample),]
+
+otu_10 <- dcast(d_10, Species ~ Sample)
+otu_10[is.na(otu_10)] <- 0
+#otu[c(1:5), c(1:5)]
+rownames(otu_10) <- otu_10$Species
+otu_m_10 <- as.matrix(otu_10[,c(2:ncol(otu_10))])
+
+
+av_mb_10 <- as.matrix(apply(otu_m_10, 1, median))
+colnames(av_mb_10) <- "a_Average"
+
+otu_m_a_10 <- cbind(av_mb_10, otu_m_10)
+
+ps_d.czm_10 <- cmultRepl(X = t(otu_m_a_10), label = 0, method = "CZM")
+ps_d.clr_10 <- t(apply(ps_d.czm_10, 1, function(x){log(x/gm_mean(x))}))
+
+
+## metadata
+av_md_10 <- t(data.frame(Average=rep("a_Average", ncol(control_institute_metadata_10))))
+colnames(av_md_10) <- colnames(control_institute_metadata_10)
+
+control_institute_metadata_10 <- rbind(control_institute_metadata_10, av_md_10)
+rownames(control_institute_metadata_10) <- c()
+
+metadata_in_10 <- column_to_rownames(control_institute_metadata_10, var = "Sample")
+#metadata_in <- column_to_rownames(metadata, var = "Sample")
+
+length(unique(metadata_in_10$Institute))
+
+#md2 <- as.data.frame(metadata)
+#row.names(md2)
+
+#metadata_in <- metadata
+#row.names(metadata_in) <- metadata_in$Sample
+#metadata_in
+```
+
+
+```{r}
+d_abun_10 <- d_10[d_10$Species %in% abun_20_10$Species,]
+
+otu_abun_10 <- dcast(d_abun_10, Species ~ Sample)
+otu_abun_10[is.na(otu_abun_10)] <- 0
+#otu[c(1:5), c(1:5)]
+rownames(otu_abun_10) <- otu_abun_10$Species
+otu_m_abun_10 <- as.matrix(otu_abun_10[,c(2:ncol(otu_abun_10))])
+
+ps_d.czm_abun_10 <- cmultRepl(X = t(otu_m_abun_10), label = 0, method = "CZM")
+ps_d.clr_abun_10 <- t(apply(ps_d.czm_abun_10, 1, function(x){log(x/gm_mean(x))}))
+
+ps_abun_df_10 <- as.data.frame(ps_d.clr_abun_10)
+ps_abun_df_10$Sample <- row.names(ps_d.clr_abun_10)
+
+nrow(ps_abun_df_10)
+
+md_df_10 <- data.frame(Sample=control_institute_metadata_10$Sample, Institute=control_institute_metadata_10$Institute)
+
+md_ps_10 <- merge(ps_abun_df_10, md_df_10, by = "Sample")
+
+list_10 <- lapply(split(md_ps_10, f = md_ps_10$Institute), function(x) {
+  apply(x[,c(2:21)], 2, mean)
+})
+
+abun_in_10 <- do.call("rbind", list_10)
+
+pheatmap(mat= as.matrix(abun_in_10), show_rownames = FALSE, show_colnames = TRUE, na_col = "grey")
+
+```
+
+```{r}
+length(row.names(abun_in_10))
+row.names(abun_in_10)
+institute_names_short <- c("Beijing Genome Institute",
+  #"Brown University",
+  #"California State University",
+  #"Charles River Laboratories",
+  #"Fox Chase Cancer Center",
+  "Gladstone Institute",
+  "Harvard Medical School",
+  #"Helmholtz Centre for Infection Research",
+  "Huazhong Agricultural University",
+  #"Janvier Labs",
+  "Kyung Hee University",
+  "Shanghai Jiao Tong University",
+  "Nanyang Technological University",
+  #"National Institutes of Health",
+  "Pfizer",
+  "QIMR Berghofer",
+  "Québec Heart and Lung Institute",
+  "Sloan Kettering & Weill Cornell",
+  #"Riken Yokohoma",
+  #"Taconic Biosciences",
+  "The Jackson Laboratory",
+  #"University of Chicago",
+  #"University of Geneva",
+  "University of Georgia",
+  #"Southwestern Medical Center",
+  "Wallenberg Laboratory",
+  "Weizmann Institute of Science"
+  )
+
+#abun_in_10
+```
+
+```{r}
+row.names(abun_in_10) <- institute_names_short
+pheatmap(mat= as.matrix(abun_in_10), show_rownames = TRUE, show_colnames = TRUE, na_col = "grey", angle_col = 90)
+
+pdf(paste0(outdir, "read_frac_heatmap-top20abun_clean-md-rectangle.pdf"), width = 10, height = 5)
+pheatmap(mat= as.matrix(abun_in_10), show_rownames = TRUE, show_colnames = TRUE, na_col = "grey", angle_col = 90)
+dev.off()
+```
+
+
+```{r}
+jackson <- d_abun_10[which(d_abun_10$Sample %in% md_ps_10$Sample[md_ps_10$Institute == "The Jackson Laboratory"]),]
+pfizer <- d_abun_10[which(d_abun_10$Sample %in% md_ps_10$Sample[md_ps_10$Institute == "Pfizer"]),]
+huazhong <- d_abun_10[which(d_abun_10$Sample %in% md_ps_10$Sample[md_ps_10$Institute == "Huazhong Agricultural University"]),]
+
+#CAG
+summary(jackson$Species_read_fraction[jackson$Species == "CAG-485 sp002362485"])
+summary(pfizer$Species_read_fraction[pfizer$Species == "CAG-485 sp002362485"])
+summary(huazhong$Species_read_fraction[huazhong$Species == "CAG-485 sp002362485"])
+
+# Btheta
+summary(jackson$Species_read_fraction[jackson$Species == "Bacteroides thetaiotaomicron"])
+summary(pfizer$Species_read_fraction[pfizer$Species == "Bacteroides thetaiotaomicron"])
+
+# Akkermansia
+summary(jackson$Species_read_fraction[jackson$Species == "Akkermansia muciniphila"])
+summary(pfizer$Species_read_fraction[pfizer$Species == "Akkermansia muciniphila"])
+
+```
+
+
+
+
+
+
+
+
+```{r}
+
+  aitch <- vegdist(x = ps_d.clr, method = "euc", binary = FALSE)
+  d_in <- cmdscale(aitch, k = 2, eig = TRUE)
+  points <- as.data.frame(d_in$points)
+  colnames(points) <- c("x", "y")
+  points$Sample <- row.names(points)
+  df <- merge(x = points, y = control_institute_metadata, by = "Sample", all.x = TRUE)
+  ggscatter(df, x = "x", y = "y")
+  # generate PCoA
+  #control_institute_metadata$Institute
+  
+p <- ggscatter(data = df, x = "x", y = "y", 
+               color = "Institute",
+               ellipse = TRUE,
+               size = 0.1,
+               ellipse.type = "t",
+               xlab = "PCoA 1",
+               ylab = "PCoA 2",
+               
+               )
+ggpar(p, legend = "none")
+  
+length(unique(control_institute_metadata$Institute))
+  
+  
+#  colnames(md)[col_i] <- "ADONIS"
+```
+
+```{r}
+  # run adonis
+  
+aitch.m <- as.matrix(aitch)
+a.out <- adonis(aitch.m ~ Institute, data = control_institute_metadata, permutations = 999) # save whole table > P-values
+print(a.out)
+```
+Permutation: free
+Number of permutations: 999
+
+Terms added sequentially (first to last)
+
+           Df SumsOfSqs MeanSqs F.Model      R2 Pr(>F)    
+Institute  38    491983 12946.9  9.2372 0.38657  0.001 ***
+Residuals 557    780694  1401.6         0.61343           
+Total     595   1272677                 1.00000           
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+
+
+
+
+
+```{r}
+# heatmap
+pheatmap(mat= as.matrix(institute_by_species), show_rownames = TRUE, show_colnames = TRUE, na_col = "grey")
+```
+
+
+
+
+```{r}
+table(instute_data$feature)
+unique(instute_data$value)
+```
+
+```{r}
+unique(metadata$Institute)
+print("hello")
+```
+
+
+## Control, C57BL/6, lab, >=10
+```{r}
+#metadata$Microbiota_status
+
+md <- metadata[which(metadata$Treatment == "Control" & 
+        metadata$Genetic_background == "C57BL/6" &
+          metadata$GI_tissue == "Faeces" &
+          metadata$Diet == "Chow" &
+          metadata$Genotype == "Wildtype" &
+        complete.cases(metadata$Institute)),]
+
+#md <- metadata[which(metadata$Treatment == "Control" & 
+#        metadata$Genetic_background == "C57BL/6" &
+#        complete.cases(metadata$Institute)),]
+
+cmi10 <- md[which(md$Institute %in% names(table(md$Institute))[table(md$Institute) >= 10]),]
+
+d_10 <- data[which(data$Sample %in% cmi10$Sample),]
+#summary(d_10$Species_read_fraction[which(d_10$Species == "CAG-485 sp002362485")])
+
+otu_dss_d10 <- dcast(d_10, Species ~ Sample)
+otu_dss_d10[is.na(otu_dss_d10)] <- 0
+
+rownames(otu_dss_d10) <- otu_dss_d10$Species
+otu_m_dss_d10 <- as.matrix(otu_dss_d10[,c(2:ncol(otu_dss_d10))])
+
+ps_d.czm_dss_d10 <- cmultRepl(X = t(otu_m_dss_d10), label = 0, method = "CZM")
+ps_d.clr_dss_d10 <- t(apply(ps_d.czm_dss_d10, 1, function(x){log(x/gm_mean(x))}))
+
+df.clr_dss_d10 <- as.data.frame(ps_d.clr_dss_d10)
+df.clr_dss_d10$Sample <- row.names(df.clr_dss_d10)
+
+#summary(df.clr_dss_d10$`CAG-485 sp002362485`)
+#summary(df.clr_dss_d10$`Duncaniella sp001689575`)
+
+
+dss_md10 <- data.frame(Sample=cmi10$Sample, Institute=cmi10$Institute)
+
+# unique(dss_md10$Institute)
+
+
+dss_d.md <- merge(df.clr_dss_d10, dss_md10, by = "Sample")
+
+dss_d.md <- dss_d.md[,c(1,which(colnames(dss_d.md) %in% abun_20_10$Species), ncol(dss_d.md))]
+
+list <- lapply(split(dss_d.md, f = dss_d.md$Institute), function(x) {
+  apply(x[,c(2:21)], 2, mean)
+})
+
+p_dss_d.md <- do.call("rbind", list)
+
+#colnames(p_dss_d.md)
+
+
+#colnames(p_dss_d.md) <- c("Alistipes sp002362235 (A61)", "Anaerostipes sp000508985 (A14)", "CAG-485 sp002362485 (A43)", "Duncaniella sp001689575 (A60)") 
+
+pheatmap(mat= as.matrix(p_dss_d.md), show_rownames = FALSE, show_colnames = TRUE, na_col = "grey", angle_col = 90)
+```
+
+

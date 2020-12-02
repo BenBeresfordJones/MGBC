@@ -1,0 +1,548 @@
+---
+title: "MMGC figure 3"
+author: "Benjamin Beresford-Jones"
+date: "10/09/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(VennDiagram)
+library(ggplot2)
+library(ggpubr)
+```
+
+### Set defaults
+```{r}
+# out path for Rplots
+indir <- "~/Documents/PhD/Manuscripts/MCGC_18075/Figure_3/data/"
+indir1 <- "~/Documents/PhD/Manuscripts/MCGC_18075/Figure_1/data/"
+outdir <- "~/Documents/PhD/Manuscripts/MCGC_18075/Figure_3/"
+set.seed(0)
+```
+
+```{r}
+class_palette <- c(Actinobacteria="#80b1d3",
+                   Alphaproteobacteria="#ccebc5",
+                   Bacilli_A="#d9d9d9",
+                   Bacilli="#ffed6f",
+                   Bacteroidia="#b3de69",
+                   Campylobacteria="#8dd3c7",
+                   Clostridia="#fb8072",
+                   Coriobacteriia="#AED6F1",
+                   Deferribacteres="#ffffb3",
+                   Desulfovibrionia="#fdb462",
+                   Gammaproteobacteria="#bc80bd",
+                   Vampirovibrionia="#E6B0AA",
+                   Verrucomicrobiae="#bebada")
+
+phylum_palette <- c(Actinobacteriota="#80b1d3",
+                    Bacteroidota="#b3de69",
+                    Campylobacterota="#8dd3c7", 
+                    Cyanobacteria="#ffe16f", 
+                    Deferribacterota="#f9ffb3",
+                    Desulfobacterota="#fdb462", 
+                    Elusimicrobiota="#AED6F1",
+                    Firmicutes="#FFC2B8",
+                    Firmicutes_A="#fb8072",
+                    Firmicutes_B="#c43b3b",
+                    Firmicutes_C="#882210",
+                    Proteobacteria="#bc80bd",  
+                    Spirochaetota="#1aa142",
+                    Thermotogota="#ccebc5", 
+                    Verrucomicrobiota="#E6CAE8")
+
+col_HUMAN <- "#0073C2FF"
+col_MOUSE <- "#FFC800"
+```
+
+
+
+## Taxonomy Venn (3b)
+
+```{r}
+# Enter mouse data
+Mouse_species_KNOWN <- 255
+Mouse_species_UNKNOWN <- 765 
+
+# Enter hhuman data
+Human_species_KNOWN <- 2256 
+Human_species_UNKNOWN <- 750
+
+Total_KNOWN <- Mouse_species_KNOWN + Human_species_KNOWN
+Total_UNKNOWN <- Mouse_species_UNKNOWN + Human_species_UNKNOWN
+```
+
+```{r}
+Total_mouse <- Mouse_species_UNKNOWN + Mouse_species_KNOWN
+Total_human <- Human_species_UNKNOWN + Human_species_KNOWN
+```
+
+```{r}
+Shared_KNOWN <- 97
+Shared_UNKNOWN <- 7
+
+Total_shared <- Shared_UNKNOWN + Shared_KNOWN
+Total_shared
+Shared_UNKNOWN
+Shared_KNOWN
+104/(2901+916+105)*100
+```
+
+```{r}
+grid.newpage()
+draw.pairwise.venn(area1 = Total_human, area2 = Total_mouse, cross.area = Total_shared, category = c("Human", "Mouse"), lty = rep("blank", 
+    2), fill = c(col_HUMAN, col_MOUSE), alpha = rep(0.5, 2), cat.pos = c(0, 
+    0), cat.dist = rep(0.025, 2))
+```
+
+```{r}
+pdf(paste0(outdir, "taxonomy_Venn.pdf"), height = 4, width = 6)
+grid.newpage()
+draw.pairwise.venn(area1 = Total_human, area2 = Total_mouse, cross.area = Total_shared, category = c("Human", "Mouse"), lty = rep("blank", 
+    2), fill = c(col_HUMAN, col_MOUSE), alpha = rep(0.5, 2), cat.pos = c(0, 
+    0), cat.dist = rep(0.025, 2))
+dev.off()
+```
+
+```{r}
+Total_species <- Total_human + Total_mouse - Total_shared
+print("The percentage of species that are shared between the microbiota of humans and mice:")
+Total_shared/Total_species*100
+```
+
+
+
+```{r}
+## Known species
+
+grid.newpage()
+draw.pairwise.venn(area1 = Human_species_KNOWN, area2 = Mouse_species_KNOWN, cross.area = Shared_KNOWN, category = c("Human", "Mouse"), lty = rep("blank", 
+    2), fill = c(col_HUMAN, col_MOUSE), alpha = rep(0.5, 2), cat.pos = c(0, 
+    0), cat.dist = rep(0.025, 2))
+
+KNOWN_species <- Human_species_KNOWN + Mouse_species_KNOWN - Shared_KNOWN
+Shared_KNOWN/KNOWN_species*100
+
+pdf(paste0(outdir, "taxonomy_Venn_KNOWN.pdf"), height = 4, width = 6)
+grid.newpage()
+draw.pairwise.venn(area1 = Human_species_KNOWN, area2 = Mouse_species_KNOWN, cross.area = Shared_KNOWN, category = c("Human", "Mouse"), lty = rep("blank", 
+    2), fill = c(col_HUMAN, col_MOUSE), alpha = rep(0.5, 2), cat.pos = c(0, 
+    0), cat.dist = rep(0.025, 2))
+dev.off()
+```
+
+```{r}
+## Unknown species
+
+grid.newpage()
+draw.pairwise.venn(area1 = Human_species_UNKNOWN, area2 = Mouse_species_UNKNOWN, cross.area = Shared_UNKNOWN, category = c("Human", "Mouse"), lty = rep("blank", 
+    2), fill = c(col_HUMAN, col_MOUSE), alpha = rep(0.5, 2), cat.pos = c(0, 
+    0), cat.dist = rep(0.025, 2))
+
+UNKNOWN_species <- Human_species_UNKNOWN + Mouse_species_UNKNOWN - Shared_UNKNOWN
+Shared_UNKNOWN/UNKNOWN_species*100
+
+pdf(paste0(outdir, "taxonomy_Venn_UNKNOWN.pdf"), height = 4, width = 6)
+grid.newpage()
+draw.pairwise.venn(area1 = Human_species_UNKNOWN, area2 = Mouse_species_UNKNOWN, cross.area = Shared_UNKNOWN, category = c("Human", "Mouse"), lty = rep("blank", 
+    2), fill = c(col_HUMAN, col_MOUSE), alpha = rep(0.5, 2), cat.pos = c(0, 
+    0), cat.dist = rep(0.025, 2))
+dev.off()
+```
+
+
+
+```{#r}
+grid.newpage()
+draw.pairwise.venn(area1 = 13671088+405254, area2 = 1920225+405254, cross.area = 405254, category = c("Human commensals", "Mouse commensals"), lty = rep("blank", 
+    2), fill = c("#0073C2FF", "#EFC000FF"), alpha = rep(0.5, 2), cat.pos = c(0, 
+    0), cat.dist = rep(0.025, 2))
+```
+
+
+## Gene clusters (3c)
+
+## Cluster analysis of high quality genomes.
+```{r}
+M100=6659595
+H100=47322981
+S100=345314
+T100=54327890
+#T100*0.0042
+
+M50=714402
+H50=2721758
+S50=457645
+T50=3893805
+
+M80=1737219
+H80=5715593
+S80=482255
+T80=7935067
+
+M90=2515863
+H90=8115668
+S90=439578
+T90=11071109
+
+```
+
+```{r}
+frac_S <- c(S100/T100*100, S90/T90*100, S80/T80*100, S50/T50*100)
+seq_id <- c("100", "90", "80", "50")
+df_proportion <- data.frame(seq_id, frac_S)
+
+#ggbarplot(data = df_proportion, x = "seq_id", y = "frac_S", sort.val = "asc", xlab = "Minimum cluster sequence identity (%)", ylab = "Proportion of shared clusters (%)", label = TRUE, lab.nb.digits = 2)
+
+p1 <- ggbarplot(data = df_proportion, x = "seq_id", y = "frac_S", 
+                sort.val = "asc", 
+                xlab = "Minimum cluster sequence identity (%)", 
+                ylab = "Proportion", 
+                label = TRUE, lab.nb.digits = 2
+                )
+
+p1
+```
+
+```{r}
+Total <- c(T100, T90, T80, T50)
+SeqId <- c(100, 90, 80, 50)
+df_totals <- data.frame(SeqId, Total)
+
+ggbarplot(df_totals, x = "SeqId", y = "Total", 
+          sort.val = "desc", 
+          ylab = "Total number of gene clusters", 
+          xlab = "Minimum cluster sequence identity (%)", 
+          label = TRUE)
+```
+
+```{r}
+Shared <- c(S100, S90, S80, S50)
+SeqId <- c(100, 90, 80, 50)
+df_shared <- data.frame(SeqId, Shared)
+
+#ggbarplot(df_shared, x = "SeqId", y = "Shared", order = c("100", "90", "80", "50"), ylab = "Number of shared gene clusters", xlab = "Minimum cluster sequence identity (%)", label = TRUE)
+
+p2 <- ggbarplot(df_shared, x = "SeqId", y = "Shared", 
+                order = c("100", "90", "80", "50"), 
+                ylab = "Count", 
+                xlab = "Cluster sequence identity threshold (%)", 
+                label = TRUE)
+
+p2 
+```
+
+
+```{r}
+p1 <- ggbarplot(data = df, x = "seq_id", y = "frac_S", 
+                sort.val = "asc", 
+                xlab = "Cluster sequence identity threshold (%)", 
+                ylab = "Percentage of clusters shared", 
+                label = TRUE, lab.nb.digits = 2,
+                lab.vjust = 0.4 , lab.hjust = -0.2) +
+  ylim(c(0,12.5))
+
+p1 <- ggpar(p1, 
+            #yticks.by = 2.5, 
+            rotate = TRUE)
+
+p2 <- ggbarplot(df_shared, x = "SeqId", y = "Shared", 
+                order = c("100", "90", "80", "50"), 
+                ylab = "Number of clusters shared", 
+                xlab = "Cluster sequence identity threshold (%)",
+                label = TRUE, lab.vjust = 0.4, lab.hjust = -0.2) +
+  ylim(c(0,550000))
+  
+
+p2 <- ggpar(p2, rotate = TRUE, ylab = FALSE, xlab = "Number of clusters shared") #+
+  #scale_y_continuous(breaks=seq(0, 550000, 250000))
+
+
+figure <- ggarrange(p1, p2, nrow = 1, ncol = 2, align = "hv")
+figure
+
+pdf(paste0(outdir, "gene_cluster_sharing.pdf"), height = 4.67, width = 10.67)
+figure
+dev.off()
+```
+
+
+
+## Functional comparison
+
+### Functional Venn - IPS
+
+```{r}
+shared_IPR <- 7884
+total_human_IPR <- 9559
+total_mouse_IPR <- 8048
+
+shared_IPR/(total_human_IPR+total_mouse_IPR-shared_IPR)*100
+
+
+grid.newpage()
+draw.pairwise.venn(area1 = total_human_IPR, area2 = total_mouse_IPR, cross.area = shared_IPR, category = c("Human", "Mouse"), lty = rep("blank", 2), 
+    fill = c(col_HUMAN, col_MOUSE) , alpha = rep(0.5, 2), cat.pos = c(0, 0), cat.dist = rep(0.025, 2))
+```
+
+```{r}
+pdf(paste0(outdir, "ipr_Venn.pdf"), height = 4, width = 6)
+grid.newpage()
+draw.pairwise.venn(area1 = total_human_IPR, area2 = total_mouse_IPR, cross.area = shared_IPR, category = c("Human", "Mouse"), lty = rep("blank", 2), 
+    fill = c(col_HUMAN, col_MOUSE) , alpha = rep(0.5, 2), cat.pos = c(0, 0), cat.dist = rep(0.025, 2))
+dev.off()
+```
+
+
+```{r}
+shared_IPR <- 7884
+total_human_IPR <- 9559
+total_mouse_IPR <- 8048
+
+total_mouse_IPR+total_human_IPR-shared_IPR
+shared_IPR/(total_mouse_IPR+total_human_IPR-shared_IPR)*100
+```
+
+
+
+### Functional Venn - EGGNOG
+
+```{r}
+shared_en <- 7623
+total_human_en <- 1185+7623
+total_mouse_en <- 195+7623
+
+total_mouse_en+total_human_en-shared_en
+shared_en/(total_human_en+total_mouse_en-shared_en)*100
+
+
+grid.newpage()
+draw.pairwise.venn(area1 = total_human_en, area2 = total_mouse_en, cross.area = shared_en, category = c("Human", "Mouse"), lty = rep("blank", 2), 
+    fill = c(col_HUMAN, col_MOUSE) , alpha = rep(0.5, 2), cat.pos = c(0, 0), cat.dist = rep(0.025, 2))
+```
+
+```{r}
+pdf(paste0(outdir, "eggNOG_Venn.pdf"), height = 4, width = 6)
+grid.newpage()
+draw.pairwise.venn(area1 = total_human_en, area2 = total_mouse_en, cross.area = shared_en, category = c("Human", "Mouse"), lty = rep("blank", 2), 
+    fill = c(col_HUMAN, col_MOUSE) , alpha = rep(0.5, 2), cat.pos = c(0, 0), cat.dist = rep(0.025, 2))
+dev.off()
+```
+
+
+```{r}
+
+total_mouse_en+total_human_en-shared_en
+shared_en/(total_mouse_en+total_human_en-shared_en)*100
+```
+
+
+
+
+
+## 
+
+# Database efficiency
+
+## IPR
+```{r}
+ipr_eff <- read_tsv(file = paste0(indir, "IPR-efficiency.tsv"), col_names = FALSE)
+colnames(ipr_eff)[c(1,2,3,4,5,9,11)] <- c("Species", "Predicted_genes", "All_ipr", "Fam_ipr", "Host", "Lowest_taxonomy", "Taxonomy")
+
+ipr_eff$All_frac <- ipr_eff$All_ipr/ipr_eff$Predicted_genes*100
+ipr_eff$Fam_frac <- ipr_eff$Fam_ipr/ipr_eff$Predicted_genes*100
+ipr_eff$Class <- unlist(lapply(strsplit(ipr_eff$Taxonomy, split = ";.__"), function(x) {
+    x[3]
+}))
+
+ipr_eff$Phylum <- unlist(lapply(strsplit(ipr_eff$Taxonomy, split = ";.__"), function(x) {
+    x[2]
+}))
+```
+
+```{r}
+summary(ipr_eff$All_frac)
+summary(ipr_eff$Fam_frac)
+```
+
+
+# class level
+
+```{r}
+COI <- sort(table(ipr_eff$Class[which(ipr_eff$Host == "HUMAN")][ipr_eff$Class[which(ipr_eff$Host == "HUMAN")] %in% ipr_eff$Class[which(ipr_eff$Host == "MOUSE")]]), decreasing = TRUE)
+ipr <- ipr_eff[which(ipr_eff$Class %in% names(COI)),]
+ipr_top6 <- ipr_eff[which(ipr_eff$Class %in% head(names(COI), 6)),]
+```
+
+```{r}
+p <- ggboxplot(data = ipr, x = "Class", y = "Fam_frac", 
+               fill = "Class", #palette = class_palette, 
+               order = names(COI), 
+               xlab = FALSE
+               ) +
+  theme(panel.grid.major.y = element_line(colour = "lightgrey")) +
+  theme(panel.grid.minor.y = element_line())
+
+  
+ggpar(p, rotate = FALSE, ylab = "% IPR assigned genes", x.text.angle = 30, legend = "none")
+
+#jpeg("~/Documents/PhD/Manuscripts/Human_Mouse_comparison/Figure 4/R_plots/ipr_efficiency_class.png", height = 245, width = 600)
+#ggpar(p, rotate = FALSE, ylab = "% IPR assigned genes", x.text.angle = 30, legend = "none")
+#dev.off()
+
+#pdf("~/Documents/PhD/Manuscripts/Human_Mouse_comparison/Figure 4/R_plots/ipr_efficiency_class.pdf", height = 3.27, width = 8)
+#ggpar(p, rotate = FALSE, ylab = "% IPR assigned genes", x.text.angle = 30, legend = "none")
+#dev.off()
+```
+
+
+
+```{r}
+p <- ggdotplot(ipr, x = "Host", y = "Fam_frac", 
+          color = "Host", palette = c("HUMAN"=col_HUMAN, "MOUSE"=col_MOUSE), 
+          point.size = 0.01, binwidth = 1,
+          facet.by = "Class", 
+          ylab = "% IPR assigned genes", xlab = FALSE) + 
+  stat_compare_means(comparisons = list(c("HUMAN", "MOUSE"))) +
+  theme(legend.position = "none")
+ggpar(p, ylim = c(0,100))
+
+p <- ggdotplot(ipr_top6, x = "Host", y = "Fam_frac", 
+          color = "Host", palette = c("HUMAN"=col_HUMAN, "MOUSE"=col_MOUSE), 
+          point.size = 0.01, binwidth = 1,
+          facet.by = "Class", 
+          ylab = "% IPR assigned genes", xlab = FALSE) + 
+  stat_compare_means(comparisons = list(c("HUMAN", "MOUSE"))) +
+  theme(legend.position = "none")
+ggpar(p, ylim = c(0,100))
+```
+
+
+
+
+
+# phylum level
+
+```{r}
+POI <- sort(table(ipr_eff$Phylum[which(ipr_eff$Host == "HUMAN")][ipr_eff$Phylum[which(ipr_eff$Host == "HUMAN")] %in% ipr_eff$Phylum[which(ipr_eff$Host == "MOUSE")]]), decreasing = TRUE)
+ipr <- ipr_eff[which(ipr_eff$Phylum %in% names(POI)),]
+ipr_top6 <- ipr_eff[which(ipr_eff$Phylum %in% head(names(POI), 6)),]
+```
+
+```{r}
+p <- ggboxplot(data = ipr, x = "Phylum", y = "Fam_frac", 
+               fill = "Phylum", palette = phylum_palette, 
+               order = names(POI), 
+               xlab = FALSE
+               ) +
+  theme(panel.grid.major.y = element_line(colour = "lightgrey")) +
+  theme(panel.grid.minor.y = element_line())
+
+  
+ggpar(p, rotate = FALSE, ylab = "% IPR assigned genes", x.text.angle = 30, legend = "none")
+
+#jpeg("~/Documents/PhD/Manuscripts/Human_Mouse_comparison/Figure 4/R_plots/ipr_efficiency_class.png", height = 245, width = 600)
+#ggpar(p, rotate = FALSE, ylab = "% IPR assigned genes", x.text.angle = 30, legend = "none")
+#dev.off()
+
+pdf(paste0(outdir, "ipr_efficiency_phylum.pdf"), height = 3.27, width = 8)
+ggpar(p, rotate = FALSE, ylab = "% IPR assigned genes", x.text.angle = 30, legend = "none")
+dev.off()
+```
+
+```{r}
+p <- ggboxplot(data = ipr, x = "Host", y = "Fam_frac", 
+               fill = "Host", 
+               #color = "Host", 
+               palette = c("HUMAN"=col_HUMAN, "MOUSE"=col_MOUSE), 
+          #add = "dotplot", add.params = list(binwidth = 0.6, color = "Host", size = 0.6),
+          ylab = "% IPR assigned genes",
+          xlab = FALSE) +
+  stat_compare_means(comparisons = list(c("HUMAN", "MOUSE")), label = "p.signif") +
+  theme(legend.position = "none")
+p
+
+pdf(paste0(outdir, "ipr_efficiency_HvM_boxplot.pdf"), height = 5, width = 5)
+p
+dev.off()
+
+
+median(ipr$Fam_frac[ipr$Host == "HUMAN"])
+median(ipr$Fam_frac[ipr$Host == "MOUSE"])
+
+p <- ggviolin(data = ipr, x = "Host", y = "Fam_frac", 
+              xlab = FALSE, ylab = "% IPR assigned genes",
+              color = "Host", fill = "Host", alpha = 0.3,
+              palette = c("HUMAN"=col_HUMAN, "MOUSE"=col_MOUSE)) +
+  stat_compare_means(comparisons = list(c("HUMAN", "MOUSE")), label = "p.signif", label.y = 80) +
+  theme(legend.position = "none")
+p
+p + geom_boxplot(aes(fill = Host),colour = "black", 
+                 outlier.shape = NA)
+
+
+pdf(paste0(outdir, "ipr_efficiency_HvM.pdf"), height = 5, width = 5)
+p + geom_boxplot(aes(fill = Host),colour = "black", 
+                 outlier.shape = NA)
+dev.off()
+```
+
+```{r}
+p <- ggviolin(data = ipr, x = "Host", y = "Fam_frac", 
+              xlab = FALSE, ylab = "% IPR assigned genes",
+              color = "Host", fill = "Host", 
+              palette = c("HUMAN"=col_HUMAN, "MOUSE"=col_MOUSE),
+              alpha = 0.3)
+
+p + geom_boxplot(aes(fill = Host),colour = "black", 
+                 outlier.shape = NA)
+```
+
+```{r}
+ggplot(data = ipr, mapping = aes(x = Host, y = Fam_frac)) +
+    geom_dotplot(data = ipr, mapping = aes(y = Fam_frac), alpha = 0.3, aes(color = Host, fill = Host)) +
+    geom_boxplot(alpha = 0, ) +
+  theme_classic2()
+
+
+
+```
+
+
+
+```{r}
+p <- ggdotplot(ipr, x = "Host", y = "Fam_frac", 
+          color = "Host", palette = c("HUMAN"=col_HUMAN, "MOUSE"=col_MOUSE), 
+          point.size = 0.01, binwidth = 1,
+          facet.by = "Phylum", 
+          ylab = "% IPR assigned genes", xlab = FALSE) + 
+  stat_compare_means(comparisons = list(c("HUMAN", "MOUSE"))) +
+  theme(legend.position = "none")
+ggpar(p, ylim = c(0,100))
+
+p <- ggdotplot(ipr_top6, x = "Host", y = "Fam_frac", 
+          color = "Host", palette = c("HUMAN"=col_HUMAN, "MOUSE"=col_MOUSE), 
+          point.size = 0.01, binwidth = 1,
+          facet.by = "Phylum", 
+          ylab = "% IPR assigned genes", xlab = FALSE) + 
+  stat_compare_means(comparisons = list(c("HUMAN", "MOUSE"))) +
+  theme(legend.position = "none")
+ggpar(p, ylim = c(0,100))
+
+
+pdf(paste0(outdir, "ipr_efficiency_phylum_HvM.pdf"), height = 3.27, width = 8)
+ggpar(p, rotate = FALSE, ylab = "% IPR assigned genes", x.text.angle = 30, legend = "none")
+dev.off()
+```
+
+
+
+
+
+
+
+
