@@ -18,10 +18,10 @@ The below resources are not found on GitHub, but are freely available elsewhere 
 
 * [Clustered protein catalogues](https://doi.org/10.5281/zenodo.4300919) for gene-level analyses.
 
-* MMGC genomes! Our non-redundant and near-complete mouse MAGs, as well as our isolate genomes, are now accessible via this [FTP URL](http://ftp.ebi.ac.uk/pub/databases/metagenomics/genome_sets/mmgc/):
-
-                 `http://ftp.ebi.ac.uk/pub/databases/metagenomics/genome_sets/mmgc/`
-    
+* MMGC genomes! Our non-redundant and near-complete mouse MAGs, as well as our isolate genomes, are now accessible via this [FTP URL](http://ftp.ebi.ac.uk/pub/databases/metagenomics/genome_sets/mmgc/):  
+<p align="center">
+                 http://ftp.ebi.ac.uk/pub/databases/metagenomics/genome_sets/mmgc/
+</p>
 
 Check out the Supplementary Tables in this repository for more information on our genomes.
 
@@ -46,11 +46,11 @@ Please read on for a detailed over-view of each directory. More specific informa
 
 
 
-## src directory
+## `src/`
 
 The _src_ directory contains four sub-directories organised to reflect different stages in this project. 
 
-### 1-build-MAGs/
+### `1-build-MAGs/`
 
 This directory includes the custom MAG building pipeline that leverages MetaWRAP to get the best quality bins out of single samples. In addition it also contains QC and taxonomy pipelines/scripts.
 
@@ -79,7 +79,7 @@ Arguments:
 
 __Notes:__
 - the `1-build-MAGs/` directory need to be part of your `$PATH` system variable
-- this pipeline uses a specific file structure:
+- this pipeline requires a specific file structure for the metagenome samples:
   * STUDY_NAME/
     * Metagenomes/
       * metagenome sample files e.g.
@@ -127,11 +127,54 @@ __Notes:__
 
 #### Other scripts in this directory:
 * `GTDBTK_CLASSIFY_EFFICIENT.sh`: the same as GTDB-Tk's `classify_wf` except with a smaller temporary file footprint.
-* `get_lowest_taxonomy_v1.0.R`: takes GTDB-Tk output and summarises the lowest taxonomy obtained - output is used in other pipelines.
+* `get_lowest_taxonomy_v1.0.R`: takes GTDB-Tk output (`gtdbtk.bac120.summary.tsv`) and summarises the lowest taxonomy obtained - output is used in other pipelines.
 * `get.RNA_profile.sh`: generate tRNA and rRNA analyses for a genome. Automatically tries to tar archive the RNA sequences for later use.
 * `get.coverage.sh`: uses samtools and bowtie to generate bam alignments for MAGs and isolate genomes from their fastq files. Facilitates getting coverage for these genomes (to be added).
+* the remaining files are part of the `MAG_pipeline.sh` pipeline
 
 
-### 2-build-protein-catalogues/
+
+
+### `2-build-protein-catalogues/`
+
+This directory includes the scripts to build the protein catalogues.
+
+#### `mmseqs_wf_bsub.sh`
+Build protein cluster databases from concatenated protein sequence file.
+
+__Requirements__
+* mmseqs2 (tested with v10.6d92c--h2d02072_0)
+* bsub.py v0.42.1
+
+This pipeline was coded for running within LSF cluster environments.
+
+__Usage:__
+```
+mmseqs_wf_bsub.sh -i <INFILE> -s <OUTDIR> -t <THREADS> -T <TMPDIR> -FENH -m 120 
+``` 
+Arguments:  
+`-i` path to input file (concatenated protein sequences e.g. .faa to be clustered) [REQUIRED]  
+`-o` output directory [default: .]  
+`-T` directory to use to build the MMseqs database [default: .]  
+`-F` cluster at 50% sequence identity (orthologue level)  
+`-E` cluster at 80% sequence identity (genus level)  
+`-N` cluster at 90% sequence identity (species level)  
+`-H` cluster at 100% sequence identity  
+`-t` number of threads to submit jobs with [default: 1]  
+`-q` queue to submit jobs to [default: normal]  
+`-m` memory to submit jobs with, 120 Gb is recommended [REQUIRED]  
+
+
+__Notes:__
+- will skip building MMseqs database if one already exist in `<TMPDIR>`
+- the `2-build-protein-catalogues/` directory need to be part of your `$PATH` system variable to access `linclust.sh`
+- output files are found written to `<-o>/CLUS_X/`, where _X_ represents the chosen sequence identity threshold(s)
+  * `mmseqs_cluster_rep.fa`: fasta file containing sequence representatives
+  * `mmseqs_cluster.tsv`: cluster membership file
+
+
+
+#### Other scripts in this directory:
+* `CLUSTER_STATS.sh`: run in the `CLUS_X` directory to generate human vs mouse statistics for comparing cluster membership. Output is written to `CLUS_x/tmp/cluster_stats.out`.
 
 
