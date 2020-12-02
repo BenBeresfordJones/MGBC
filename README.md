@@ -46,7 +46,7 @@ Please read on for a detailed over-view of each directory. More specific informa
 
 
 
-## src directory
+## `src` directory
 
 The _src_ directory contains four sub-directories organised to reflect different stages in this project. 
 
@@ -79,7 +79,7 @@ Arguments:
 
 __Notes:__
 - the `1-build-MAGs/` directory need to be part of your `$PATH` system variable
-- this pipeline uses a specific file structure:
+- this pipeline requires a specific file structure for the metagenome samples:
   * STUDY_NAME/
     * Metagenomes/
       * metagenome sample files e.g.
@@ -134,5 +134,45 @@ __Notes:__
 
 
 ### 2-build-protein-catalogues/
+
+This directory includes the scripts to build the protein catalogues.
+
+#### `mmseqs_wf_bsub.sh`
+Build protein cluster databases from concatenated protein sequence file.
+
+__Requirements__
+* mmseqs2 (tested with v10.6d92c--h2d02072_0)
+* bsub.py v0.42.1
+
+This pipeline was coded for running within LSF cluster environments.
+
+__Usage:__
+```
+mmseqs_wf_bsub.sh -i <INFILE> -s <OUTDIR> -t <THREADS> -T <TMPDIR> -FENH -m 120 
+``` 
+Arguments:  
+`-i` path to input file (concatenated protein sequences e.g. .faa to be clustered) [REQUIRED]  
+`-o` output directory [default: .]  
+`-T` directory to use to build the MMseqs database [default: .]  
+`-F` cluster at 50% sequence identity (orthologue level)  
+`-E` cluster at 80% sequence identity (genus level)  
+`-N` cluster at 90% sequence identity (species level)  
+`-H` cluster at 100% sequence identity  
+`-t` number of threads to submit jobs with [default: 1]  
+`-q` queue to submit jobs to [default: normal]  
+`-m` memory to submit jobs with, 120 Gb is recommended [REQUIRED]  
+
+
+__Notes:__
+- will skip building MMseqs database if one already exist in `<TMPDIR>`
+- the `2-build-protein-catalogues/` directory need to be part of your `$PATH` system variable to access `linclust.sh`
+- output files are found written to `<-o>/CLUS_X/`, where _X_ represents the chosen sequence identity threshold(s)
+  * `mmseqs_cluster_rep.fa`: fasta file containing sequence representatives
+  * `mmseqs_cluster.tsv`: cluster membership file
+
+
+
+#### Other scripts in this directory:
+* `CLUSTER_STATS.sh`: run in the `CLUS_X` directory to generate human vs mouse statistics for comparing cluster membership. Output is written to `CLUS_x/tmp/cluster_stats.out`.
 
 
