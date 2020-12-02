@@ -198,36 +198,150 @@ __Usage:__
 get.species_pangenome_v2.sh -i <"TAXON"> -t <THREADS> -H <HOST> -CEI
 ``` 
 Arguments:  
-Input:
+Input:  
 `-i` Taxonomical level to compare in quotation marks e.g.  
-  "s__Lactobacillus johnsonii" will get all genomes for this species
-  "f__Muribaculaceae" will get any genome that has been classified as a member of the Muribaculaceae family, including those assigned to genus or species taxonomic ranks  
-  "Muribaculaceae" (no rank tag) will get genomes that have been assigned a terminal rank of Muribaculaceae at the family level i.e. no genus- or species- level assignment  
+  * "s__Lactobacillus johnsonii" will get all genomes for this species
+  * "f__Muribaculaceae" will get any genome that has been classified as a member of the Muribaculaceae family, including those assigned to genus or species taxonomic ranks  
+  * "Muribaculaceae" (no rank tag) will get genomes that have been assigned a terminal rank of Muribaculaceae at the family level i.e. no genus- or species- level assignment  
 `-t` number of threads with which to run analyses  
 `-q` queue to submit jobs to [default: normal]    
-`-H` Specifiy a host - either `HUMAN` or `MOUSE`
+`-H` Specifiy a host - either `HUMAN` or `MOUSE`  
 
-Output - pick one of the following options: [deafult: `-p`]
-`-o` specify the output directory in which to generate the results
-`-p` supply path to directory in which to build output directory that is the same name as the taxonomical level supplied [default: ./<i>]
+Output - pick one of the following options: [default: `-p`]  
+`-o` specify the output directory in which to generate the results  
+`-p` supply path to directory in which to build output directory that is the same name as the taxonomical level supplied [default: `./<i>`]  
 
-Action:
-`-C` get gene clusters that are unique and shared between each host.
-`-l` sequence identity threshold of clusters (use with `-C`). Can be one of 50, 80, 90 or 100. [default: 90]
-`-E` run eggNOG v2 on host-specific and shared clusters.
-`-I` run InterProScan on pangenome.
+Action:  
+`-C` get gene clusters that are unique and shared between each host.  
+`-l` sequence identity threshold of clusters (use with `-C`). Can be one of 50, 80, 90 or 100. [default: 90]  
+`-E` run eggNOG v2 on host-specific and shared clusters.  
+`-I` run InterProScan on pangenome.  
 
 
 __Notes:__
 - need to update the paths to the required data:
   * [protein cluster databases](https://doi.org/10.5281/zenodo.4300919)
-  * UHGP 100% sequence identityt rep membership file
-      * `data/`
+      * path to directory containing CLUS_X directories
   * taxonomy files (requires the output from `get_lowest_taxonomy_v1.0.R`)
-      * `data/`
+      * `data/mouse-18075.tsv`
+      * `data/human-100456.tsv`
+
+
+#### `get.unknown_species_pangenome_v2.sh`
+Build a host-specific pangenome for a __previously uncharacterised__ species i.e. cannot be assigned to a species-level taxonomic rank by GTDB-Tk. 
+
+__Requirements:__
+* eggNOG-mapper v2.0.1
+* InterProScan v5.39-77.0-W01
+* bsub.py v0.42.1
+
+This pipeline was coded for running within LSF cluster environments.
+
+__Usage:__
+```
+get.unknown_species_pangenome_v2.sh -i <GENOME_ID> -t <THREADS> -H <HOST> -CEI
+``` 
+Arguments:  
+Input:  
+`-i` representative genome identifier (currently: genome name) without any .fna or .fa suffix   
+`-t` number of threads with which to run analyses  
+`-q` queue to submit jobs to [default: normal]    
+`-H` Specifiy a host - either `HUMAN` or `MOUSE`  
+
+Output - pick one of the following options: [default: `-p`]  
+`-o` specify the output directory in which to generate the results  
+`-p` supply path to directory in which to build output directory that is the same name as the taxonomical level supplied [default: `./<i>`]  
+
+Action:  
+`-C` get gene clusters that are unique and shared between each host.  
+`-l` sequence identity threshold of clusters (use with `-C`). Can be one of 50, 80, 90 or 100. [default: 90]  
+`-E` run eggNOG v2 on host-specific and shared clusters.  
+`-I` run InterProScan on pangenome.  
+
+
+__Notes:__
+- need to update the paths to the required data:
+  * [protein cluster databases](https://doi.org/10.5281/zenodo.4300919)
+      * path to directory containing CLUS_X directories  
+  * taxonomy files (requires the output from `get_lowest_taxonomy_v1.0.R`)
+      * `data/mouse-18075.tsv`
+      * `data/human-100456.tsv`
+  * 95% ANI output files for mouse
+      * `data/drep_950_index-ALL.csv'
+  * human genome-genome rep index
+      * `data/human_rep_members.tsv'
+
+
+#### `analyse.species-pangenome_v3.sh`
+
+Analyse the __eggNOG-mapper v2__ output for a pangenome.
+
+__Requirements:__
+* R v3.6.0
+
+This pipeline was coded for running within LSF cluster environments.
+
+__Usage:__
+```
+analyse.species-pangenome_v3.sh -i <PANGENOME_DIR> -o <OUTDIR> -H <HOST>
+``` 
+Arguments:  
+`-i` path to pangenome directory   
+`-D` directory containing the eggNOG reference databases [not implemented]  
+`-o` directory to write to [default: <-i>/eggnog-out]  
+`-H` specifiy a host organism - either `HUMAN` or `MOUSE`  
+
+
+__Notes:__
+- need to update the paths to the required data:
+  * taxonomy files (requires the output from `get_lowest_taxonomy_v1.0.R`)
+      * `data/mouse-18075.tsv`
+      * `data/human-100456.tsv`
+  * [MMGC/UHGP MMseqs 90% cluster membership file](https://doi.org/10.5281/zenodo.4300919)  
+      * mmseqs_cluster.tsv
+  * UHGP 100% cluster membership file.
+      * get_cluster_membership.out.tsv
+      * will include code to be able to access
+  * the KEGG database directory
+      * `data/KEGG_DB`
+ 
+ 
+#### `analyse.species-pangenome_IPS_v3.sh`
+
+Analyse the __InterProScan v5__ output for a given pangenome.
+
+__Requirements:__
+* R v3.6.0
+
+This pipeline was coded for running within LSF cluster environments.
+
+__Usage:__
+```
+analyse.species-pangenome_IPS_v3.sh -i <PANGENOME_DIR> -o <OUTDIR> -H <HOST>
+``` 
+Arguments:  
+`-i` path to pangenome directory   
+`-D` directory containing the IPS reference databases [not implemented]  
+`-o` directory to write to [default: <-i>/IPS-out]  
+`-H` specifiy a host organism - either `HUMAN` or `MOUSE`  
+
+
+__Notes:__
+- need to update the paths to the required data:
+  * taxonomy files (requires the output from `get_lowest_taxonomy_v1.0.R`)
+      * `data/mouse-18075.tsv`
+      * `data/human-100456.tsv`
+  * [MMGC/UHGP MMseqs 90% cluster membership file](https://doi.org/10.5281/zenodo.4300919)  
+      * mmseqs_cluster.tsv
+  * UHGP 100% cluster membership file.
+      * get_cluster_membership.out.tsv
+      * will include code to be able to access
+  * the InterPro family database
+      * `data/InterPro
+      
+
+The other scripts in this directory are used by the pipelines discussed above.
 
 
 
 
-#### Other scripts in this directory:
-* `CLUSTER_STATS.sh`: run in the `CLUS_X` directory to generate human vs mouse statistics for comparing cluster membership. Output is written to `CLUS_x/tmp/cluster_stats.out`.
