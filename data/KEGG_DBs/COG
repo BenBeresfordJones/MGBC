@@ -1,0 +1,25 @@
+[D]	Cell cycle control, cell division, chromosome partitioning
+[M]	Cell wall/membrane/envelope biogenesis
+[N]	Cell motility
+[O]	Post-translational modification, protein turnover, and chaperones
+[T]	Signal transduction mechanisms
+[U]	Intracellular trafficking, secretion, and vesicular transport
+[V]	Defense mechanisms
+[W]	Extracellular structures
+[Y]	Nuclear structure
+[Z]	Cytoskeleton
+[A]	RNA processing and modification
+[B]	Chromatin structure and dynamics
+[J]	Translation, ribosomal structure and biogenesis
+[K]	Transcription
+[L]	Replication, recombination and repair
+[C]	Energy production and conversion
+[E]	Amino acid transport and metabolism
+[F]	Nucleotide transport and metabolism
+[G]	Carbohydrate transport and metabolism
+[H]	Coenzyme transport and metabolism
+[I]	Lipid transport and metabolism
+[P]	Inorganic ion transport and metabolism
+[Q]	Secondary metabolites biosynthesis, transport, and catabolism
+[R]	General function prediction only
+[S]	Function unknown
