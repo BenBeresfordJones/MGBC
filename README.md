@@ -353,7 +353,7 @@ analyse.ENZYME_v2.sh -i <ENZYME_EC>
 ``` 
 
 ##### `analyse.IPR-out_v2.sh`
- * take an InterPro family id (IPRXXXXXX) and returns the number of family-encoding genomes for each pangenome, with a similar output to the `analyse.ENZYME_v2.sh` script above.
+ * takes an InterPro family id (IPRXXXXXX) and returns the number of family-encoding genomes for each pangenome, with a similar output to the `analyse.ENZYME_v2.sh` script above.
 ```
 analyse.IPR-out_v2.sh -i <IPR_ID>
 ``` 
