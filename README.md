@@ -4,7 +4,7 @@ The Mouse Microbial Genome Collection (MMGC)
 Welcome to the MMGC repository! Here you will find the pipelines, scripts and data files required to establish the average mouse microbiome at the species-level and further compare the microbiotas of humans and mice. 
 
 
-This work is currently under review for publication :fire:.
+This work is currently under review for publication :microscope:.
 
 
 
@@ -372,4 +372,4 @@ blast-out_v4.sh -i <GENE_FAA> -s <SEQ_IDENT> -o <OUTDIR>
 
 ## Thank you for reading!
 
-Any questions or queries, or even if you just want to say hello, feel free to get in touch via email!
+Any comments, questions or queries, or even if you just want to say hello, feel free to get in touch via email!
