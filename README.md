@@ -4,7 +4,7 @@ The Mouse Microbial Genome Collection (MMGC)
 Welcome to the MMGC repository! Here you will find the pipelines, scripts and data files required to establish the average mouse microbiome at the species-level and further compare the microbiotas of humans and mice. 
 
 
-This work is currently under review for publication :fire:.
+This work is currently under review for publication :microscope:.
 
 
 
@@ -339,5 +339,37 @@ __Notes:__
 The other scripts in this directory are used by the pipelines discussed above.
 
 
+### `4-functional-analyses/`
 
+This directory includes the scripts used to compare the predicted presence of specific functions in the microbiotas of humans and mice. With the exception of the blast pipeline, these scripts utilise the functional annotations of the species pangenomes. 
 
+#### Scripts in this directory:
+##### `analyse.ENZYME_v2.sh`
+ * takes an enzyme EC number and returns the number of enzyme-encoding genomes for each pangenome. 
+    * The script also provides the number of total genomes for each pangenome, as well as their taxonomy and host-membership.
+    * Facilitates easy interrogation of specific enzymatic functions.
+```
+analyse.ENZYME_v2.sh -i <ENZYME_EC>
+``` 
+
+##### `analyse.IPR-out_v2.sh`
+ * takes an InterPro family id (IPRXXXXXX) and returns the number of family-encoding genomes for each pangenome, with a similar output to the `analyse.ENZYME_v2.sh` script above.
+```
+analyse.IPR-out_v2.sh -i <IPR_ID>
+``` 
+ 
+##### `compare.HM_eggnog-out.sh`
+ * summarises the number of pangenomes that are predicted to encode each identifier for each KEGG database (CAZY, COG, ENZYME, KO, MODULE, PATHWAY, REACTION) for each host, outputing `<DB>.mouse.tsv` and `<DB>.human.tsv`. Where these identifiers are shared between hosts, these data are compiled and presented together in `<DB>.shared.tsv`.
+```
+compare.HM_eggnog-out.sh <OUTDIR> <PATH_TO_HUMAN_PANGENOME_DIR> <PATH_TO_MOUSE_PANGENOME_DIR> 
+``` 
+
+##### `blast-out_v4.sh`
+ * takes the amino acid sequence for a gene and runs a protein BLAST against the CLUS_100 gene catalogue. It combines positive hits with aligned sequence metadata and returns a summary document comparings equence identity and taxonomic location between human and mouse gut commensals. This approach facilitates analysis of proteins/predicted functions thta may not be well-documented in protein databases.
+```
+blast-out_v4.sh -i <GENE_FAA> -s <SEQ_IDENT> -o <OUTDIR>
+``` 
+
+## Thank you for reading!
+
+Any comments, questions or queries, or even if you just want to say hello, feel free to get in touch via email!
