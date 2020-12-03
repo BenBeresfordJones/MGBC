@@ -263,9 +263,9 @@ __Notes:__
       * `data/mouse-18075.tsv`
       * `data/human-100456.tsv`
   * 95% ANI output files for mouse
-      * `data/drep_950_index-ALL.csv'
+      * `data/drep_950_index-ALL.csv`
   * human genome-genome rep index
-      * `data/human_rep_members.tsv'
+      * `data/human_rep_members.tsv`
 
 
 #### `analyse.species-pangenome_v3.sh`
@@ -294,12 +294,12 @@ __Notes:__
       * `data/mouse-18075.tsv`
       * `data/human-100456.tsv`
   * [MMGC/UHGP MMseqs 90% cluster membership file](https://doi.org/10.5281/zenodo.4300919)  
-      * mmseqs_cluster.tsv
+      * `CLUS_90/mmseqs_cluster.tsv`
   * UHGP 100% cluster membership file.
-      * get_cluster_membership.out.tsv
+      * `get_cluster_membership.out.tsv`
       * will include code to be able to access
   * the KEGG database directory
-      * `data/KEGG_DB`
+      * `data/KEGG_DBs`
  
  
 #### `analyse.species-pangenome_IPS_v3.sh`
@@ -328,12 +328,12 @@ __Notes:__
       * `data/mouse-18075.tsv`
       * `data/human-100456.tsv`
   * [MMGC/UHGP MMseqs 90% cluster membership file](https://doi.org/10.5281/zenodo.4300919)  
-      * mmseqs_cluster.tsv
+      * `CLUS_90/mmseqs_cluster.tsv`
   * UHGP 100% cluster membership file.
-      * get_cluster_membership.out.tsv
-      * will include code to be able to access
+      * `get_cluster_membership.out.tsv`
+      * will include code to be able to make
   * the InterPro family database
-      * `data/InterPro
+      * `data/InterPro_DBs`
       
 
 The other scripts in this directory are used by the pipelines discussed above.
