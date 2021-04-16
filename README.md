@@ -6,6 +6,9 @@ Welcome to the MMGC repository! Here you will find the pipelines, scripts and da
 
 This work is currently under review for publication :microscope:.
 
+*Pre-print now on bioRxiv:*
+
+Functional and taxonomic comparison of mouse and human gut microbiotas using extensive culturing and metagenomics(https://doi.org/10.1101/2021.02.11.430759)
 
 
 
