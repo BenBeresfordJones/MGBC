@@ -1,7 +1,7 @@
-The Mouse Microbial Genome Collection (MMGC)
+The Mouse Gastrointestinal Bacterial Catalogue (MGBC)
 ============================================
 
-Welcome to the MMGC repository! Here you will find the pipelines, scripts and data files required to establish the average mouse microbiome at the species-level and further compare the microbiotas of humans and mice. 
+Welcome to the MGBC repository! Here you will find the pipelines, scripts and data files required to establish the average mouse microbiome at the species-level and further compare the microbiotas of humans and mice. 
 
 
 This work is currently under review for publication :microscope:.
@@ -11,6 +11,22 @@ This work is currently under review for publication :microscope:.
 [Functional and taxonomic comparison of mouse and human gut microbiotas using extensive culturing and metagenomics](https://doi.org/10.1101/2021.02.11.430759)
 
 
+## Dataset download links: 
+
+Genomes:
+* [26,640 high-quality, non-redundant genomes (MGBC-hqnr_26640.tar.gz)](https://zenodo.org/record/4840600/files/MGBC-hqnr_26640.tar.gz?download=1)
+    * Genome metadata: [MGBC_md_26640.tar.gz](https://zenodo.org/record/4840600/files/MGBC_md_26640.tar.gz?download=1)
+    * Genome protein coding sequences (CDS): [MGBC-faa_26640.tar.gz](https://zenodo.org/record/4840600/files/MGBC-faa_26640.tar.gz?download=1)
+    * These are the final genome set following dereplication that is used for the study analyses. 
+* [35,925 high-quality genomes (MGBC-hq_35925.tar.gz)](https://zenodo.org/record/4837230/files/MGBC-hq_35925.tar.gz?download=1)
+    * Genome metadata: [MGBC_md_65097.tar.gz](https://zenodo.org/record/4837230/files/MGBC_md_65097.tar.gz?download=1)
+    * These are all the high quality genomes from the study, prior to dereplication. 
+
+Protein catalogues:
+* [MGBC-UHGG combined catalogue - 100% sequence identity clusters (mgbc-uhgg_clus100.tar.gz)](https://zenodo.org/record/4840586/files/mgbc-uhgg_clus100.tar.gz?download=1)
+* [MGBC-UHGG combined catalogue - 90% sequence identity clusters (mgbc-uhgg_clus90.tar.gz)](https://zenodo.org/record/4840586/files/mgbc-uhgg_clus90.tar.gz?download=1)
+* [MGBC-UHGG combined catalogue - 80% sequence identity clusters (mgbc-uhgg_clus80.tar.gz)](https://zenodo.org/record/4840586/files/mgbc-uhgg_clus80.tar.gz?download=1)
+* [MGBC-UHGG combined catalogue - 50% sequence identity clusters (mgbc-uhgg_clus50.tar.gz)](https://zenodo.org/record/4840586/files/mgbc-uhgg_clus50.tar.gz?download=1)
 
 
 ## Mouse microbiome resources for your research
