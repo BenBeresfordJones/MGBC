@@ -11,9 +11,9 @@ This work is currently under review for publication :microscope:.
 [Functional and taxonomic comparison of mouse and human gut microbiotas using extensive culturing and metagenomics](https://doi.org/10.1101/2021.02.11.430759)
 
 
-## Dataset download links: 
+## Dataset download links for use by reviewers
 
-Genomes:
+__Genomes:__
 * [26,640 high-quality, non-redundant genomes (MGBC-hqnr_26640.tar.gz)](https://zenodo.org/record/4840600/files/MGBC-hqnr_26640.tar.gz?download=1)
     * Genome metadata: [MGBC_md_26640.tar.gz](https://zenodo.org/record/4840600/files/MGBC_md_26640.tar.gz?download=1)
     * Genome protein coding sequences (CDS): [MGBC-faa_26640.tar.gz](https://zenodo.org/record/4840600/files/MGBC-faa_26640.tar.gz?download=1)
@@ -22,12 +22,27 @@ Genomes:
     * Genome metadata: [MGBC_md_65097.tar.gz](https://zenodo.org/record/4837230/files/MGBC_md_65097.tar.gz?download=1)
     * These are all the high quality genomes from the study, prior to dereplication. 
 
-Protein catalogues:
+__Protein catalogues:__
 * [MGBC-UHGG combined catalogue - 100% sequence identity clusters (mgbc-uhgg_clus100.tar.gz)](https://zenodo.org/record/4840586/files/mgbc-uhgg_clus100.tar.gz?download=1)
 * [MGBC-UHGG combined catalogue - 90% sequence identity clusters (mgbc-uhgg_clus90.tar.gz)](https://zenodo.org/record/4840586/files/mgbc-uhgg_clus90.tar.gz?download=1)
 * [MGBC-UHGG combined catalogue - 80% sequence identity clusters (mgbc-uhgg_clus80.tar.gz)](https://zenodo.org/record/4840586/files/mgbc-uhgg_clus80.tar.gz?download=1)
 * [MGBC-UHGG combined catalogue - 50% sequence identity clusters (mgbc-uhgg_clus50.tar.gz)](https://zenodo.org/record/4840586/files/mgbc-uhgg_clus50.tar.gz?download=1)
+* [MGBC protein catalogue - 100% sequence identity clusters (mgbc_hq-mq_clus100.tar.gz)](https://zenodo.org/record/4840586/files/mgbc_hq-mq_clus100.tar.gz?download=1)
+      * This catalogue contains the gene clusters from all non-redundant high and medium plus quality genomes of the MGBC.
 
+
+__Kraken2/Bracken database:__
+* [MGBC Kraken2/Bracken database (MGBC-26640_KrakenBracken.tar.gz)](https://zenodo.org/record/4836362/files/MGBC-26640_KrakenBracken.tar.gz?download=1)
+      * This custom database leverages the 26,640 high quality genomes of the MGBC to achieve ~90% average read classification for mouse gut metagenome samples.
+
+__The global mouse metagenome compilation:__
+* [Bracken output for 2,446 mouse gut metagenomes (bracken-out_2664.tar.gz)](https://zenodo.org/record/4836362/files/bracken-out_2664.tar.gz?download=1)
+      * Species-level data on the microbiome composition for 2,446 mouse gut metagenome samples.
+* [Sample metadata for these mouse gut metagenomes (sample-metadata_2446.tar.gz)](https://zenodo.org/record/4836362/files/sample-metadata_2446.tar.gz?download=1)
+
+
+
+# DRAFT #
 
 ## Mouse microbiome resources for your research
 
