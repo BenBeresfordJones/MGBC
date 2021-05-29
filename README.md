@@ -27,7 +27,7 @@ __Protein catalogues:__
 * [MGBC-UHGG combined catalogue - 90% sequence identity clusters (mgbc-uhgg_clus90.tar.gz)](https://zenodo.org/record/4840586/files/mgbc-uhgg_clus90.tar.gz?download=1)
 * [MGBC-UHGG combined catalogue - 80% sequence identity clusters (mgbc-uhgg_clus80.tar.gz)](https://zenodo.org/record/4840586/files/mgbc-uhgg_clus80.tar.gz?download=1)
 * [MGBC-UHGG combined catalogue - 50% sequence identity clusters (mgbc-uhgg_clus50.tar.gz)](https://zenodo.org/record/4840586/files/mgbc-uhgg_clus50.tar.gz?download=1)
-* [MGBC protein catalogue - 100% sequence identity clusters (mgbc_hq-mq_clus100.tar.gz)](https://zenodo.org/record/4840586/files/mgbc_hq-mq_clus100.tar.gz?download=1)
+* [MGBC protein catalogue - 100% sequence identity clusters (mgbc_hq-mq_clus100.tar.gz)](https://zenodo.org/record/4840586/files/mgbc_hq-mq_clus100.tar.gz?download=1)  
       * This catalogue contains the gene clusters from all non-redundant high and medium plus quality genomes of the MGBC.
 
 
