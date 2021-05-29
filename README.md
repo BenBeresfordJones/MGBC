@@ -33,11 +33,11 @@ __Protein catalogues:__
 
 __Kraken2/Bracken database:__
 * [MGBC Kraken2/Bracken database (MGBC-26640_KrakenBracken.tar.gz)](https://zenodo.org/record/4836362/files/MGBC-26640_KrakenBracken.tar.gz?download=1)
-      * This custom database leverages the 26,640 high quality genomes of the MGBC to achieve ~90% average read classification for mouse gut metagenome samples.
+    * This custom database leverages the 26,640 high quality genomes of the MGBC to achieve ~90% average read classification for mouse gut metagenome samples.
 
 __The global mouse metagenome compilation:__
 * [Bracken output for 2,446 mouse gut metagenomes (bracken-out_2664.tar.gz)](https://zenodo.org/record/4836362/files/bracken-out_2664.tar.gz?download=1)
-      * Species-level data on the microbiome composition for 2,446 mouse gut metagenome samples.
+    * Species-level data on the microbiome composition for 2,446 mouse gut metagenome samples.
 * [Sample metadata for these mouse gut metagenomes (sample-metadata_2446.tar.gz)](https://zenodo.org/record/4836362/files/sample-metadata_2446.tar.gz?download=1)
 
 
