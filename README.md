@@ -42,25 +42,6 @@ __The global mouse metagenome compilation:__
 
 
 
-# DRAFT #
-
-## Mouse microbiome resources for your research
-
-The below resources are not found on GitHub, but are freely available elsewhere to facilitate your analyses of the mouse gut microbiome:
-
-* [Custom Kraken2/Bracken database](https://doi.org/10.5281/zenodo.4300642) for species-level analysis of mouse gut shotgun metagenomes.
-
-* [Clustered protein catalogues](https://doi.org/10.5281/zenodo.4300919) for gene-level analyses.
-
-* MMGC genomes! Our non-redundant and near-complete mouse MAGs, as well as our MCC isolate genomes, are now accessible at http://ftp.ebi.ac.uk/pub/databases/metagenomics/genome_sets/mmgc/.   
-
-
-
-Check out the Supplementary Tables in the `supp` directory of this repository for more information on our genomes.
-
-
-
-
 ## Data and code used in this project
 
 This archive is structured as follows :
