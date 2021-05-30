@@ -226,7 +226,7 @@ __Usage:__
 get.pangenome_MGBC1094.sh -i <GENOME_REP_ID> -t <THREADS> -q <QUEUE> -H <HOST> -p <OUT_DIR> -CEI -l <SEQID>
 ``` 
 Arguments:  
-Input [REQUIRED]:
+Input [REQUIRED]:  
 `-i`      Representative genome id without file suffix (i.e. .fna, .fa)  
 `-t`      Number of threads with which to run analyses.  
 `-q`      Queue to submit jobs to, for use with cluster analysis [default: normal]  
@@ -248,12 +248,12 @@ __Notes:__
 - need to update the path variables to the required data inside the file:
   * `$LINCLUST_DB`: path to directory containing CLUS_X directories
       * this will be the same directory as supplied to `mmseqs_wf_bsub.sh` with the `<-o>` flag
-  * `$M_REPMEMS` and `$H_REPMEMS`: tab-separated representative genome index files for each host, where 
-        * column 1 contains the genome id,
-        * column 2 contains the representative genome id for the species cluster,
-        * column 3 indicates the lowest taxonomy as determined by GTDB-Tk and `get_lowest_taxonomy_v1.0.R`
-      * `mgbc_rep_index_26640.tsv` and `uhgg_rep_index_100456.tsv` are given as examples in the `data/` directory
-      * e.g.
+  * `$M_REPMEMS` and `$H_REPMEMS`: tab-separated representative genome index files for each host, where   
+     * column 1 contains the genome id,
+     * column 2 contains the representative genome id for the species cluster,
+     * column 3 indicates the lowest taxonomy as determined by GTDB-Tk and `get_lowest_taxonomy_v1.0.R`
+     * `mgbc_rep_index_26640.tsv` and `uhgg_rep_index_100456.tsv` are given as examples in the `data/` directory
+     * e.g.
 ```
 MGBC000001	MGBC000001	g__Schaedlerella
 MGBC000002	MGBC129157	s__CAG-485 sp002362485
