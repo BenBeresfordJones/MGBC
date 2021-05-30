@@ -64,7 +64,7 @@ Please read on for a detailed over-view of the `src` directory. Specific informa
 
 ## `src/`
 
-The _src_ directory contains four sub-directories organised to reflect different stages in this project. 
+The `src` directory contains four sub-directories organised to reflect different stages in this project. 
 
 ### `1-build-MAGs/`
 
