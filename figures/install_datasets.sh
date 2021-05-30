@@ -16,5 +16,10 @@ wget https://zenodo.org/record/4855526/files/SuppFig4_data.zip
 
 
 ## unzip all datasets
-unzip *.zip
+for file in *.zip
+do
+  unzip $file
+done
+
+## clean up
 rm -r __MACOSX/
