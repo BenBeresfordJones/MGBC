@@ -17,7 +17,7 @@ __Genomes:__
 * [26,640 high-quality, non-redundant genomes (MGBC-hqnr_26640.tar.gz)](https://zenodo.org/record/4840600/files/MGBC-hqnr_26640.tar.gz?download=1)
     * Genome metadata: [MGBC_md_26640.tar.gz](https://zenodo.org/record/4840600/files/MGBC_md_26640.tar.gz?download=1)
     * Genome protein coding sequences (CDS): [MGBC-faa_26640.tar.gz](https://zenodo.org/record/4840600/files/MGBC-faa_26640.tar.gz?download=1)
-    * These are the final genome set following dereplication that is used for the study analyses. 
+    * This is the final genome set following dereplication that is used for the study's analyses. 
 * [35,925 high-quality genomes (MGBC-hq_35925.tar.gz)](https://zenodo.org/record/4837230/files/MGBC-hq_35925.tar.gz?download=1)
     * Genome metadata: [MGBC_md_65097.tar.gz](https://zenodo.org/record/4837230/files/MGBC_md_65097.tar.gz?download=1)
     * These are all the high quality genomes from the study, prior to dereplication. 
@@ -45,17 +45,17 @@ __The global mouse metagenome compilation:__
 
 ## Data and code used in this project
 
-This archive is structured as follows :
+This repository is structured as follows :
 
 - the _src_ directory contains the source materials and pipelines to be able to reproduce our analyses. These pipelines include:
    * custom MAG synthesis
    * pangenome building and analysis 
 
-- the _data_ directory contains the starting and intermediate datasets used to carry out the experiments
+- the _data_ directory contains the reference datasets for the functional schemes
 
 - the _figures_ directory contains the scripts used to build the figures for the manuscript
 
-- the _supp_ directory contains the Supplementary Data files from the paper
+- the _supp_ directory contains a description of the Supplementary Data Tables from the paper
 
 Please read on for a detailed over-view of each directory. More specific information can be found in the README files in the relevant directory.
 
