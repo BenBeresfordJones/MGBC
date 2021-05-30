@@ -11,6 +11,9 @@ This work is currently under review for publication :microscope:.
 [Functional and taxonomic comparison of mouse and human gut microbiotas using extensive culturing and metagenomics](https://doi.org/10.1101/2021.02.11.430759)
 
 
+The [MGBC-Toolkit](https://github.com/BenBeresfordJones/MGBC-Toolkit) is a new tool for identifying the closest taxonomically and functionally related species between the human and mouse gut microbiotas, as well as the taxonomic locations of functions of interest between hosts.
+
+
 ## Dataset download links for use by reviewers
 
 __Genomes:__
@@ -39,8 +42,6 @@ __The global mouse metagenome compilation:__
 * [Bracken output for 2,446 mouse gut metagenomes (bracken-out_2664.tar.gz)](https://zenodo.org/record/4836362/files/bracken-out_2664.tar.gz?download=1)
     * Species-level data on the microbiome composition for 2,446 mouse gut metagenome samples.
 * [Sample metadata for these mouse gut metagenomes (sample-metadata_2446.tar.gz)](https://zenodo.org/record/4836362/files/sample-metadata_2446.tar.gz?download=1)
-
-
 
 
 ## Data and code used in this project
@@ -72,6 +73,12 @@ The _src_ directory contains four sub-directories organised to reflect different
 ### `1-build-MAGs/`
 
 This directory includes the custom MAG building pipeline that leverages MetaWRAP to get the best quality bins out of single samples. In addition it also contains QC and taxonomy pipelines/scripts.
+
+__Overview of workflow:__
+* `MAG_pipeline.sh`: runs metagenome QC, assembly, binning and refinement for MAG synthesis.  
+* `QC_TAX_pipeline`: wrapper for running CheckM and GTDB-Tk on refined bins.  
+* `get.RNA_profile.sh`: generate tRNA and rRNA profiles for a genome; designed to be run in parallel.  
+
 
 #### `MAG_pipeline.sh`
 Build metagenome-assembled genomes quickly and easily from shotgun metagenomes.
@@ -153,7 +160,12 @@ __Notes:__
 
 ### `2-build-protein-catalogues/`
 
-This directory includes the scripts to build the protein catalogues.
+This directory includes the scripts to build the protein catalogues. As a prerequisite, CDS predictions should be generated for genomes (e.g. using prokka) and the .faa files for each genome concatenated (using `cat *.faa`). The resulting .faa file serves as input for this pipeline.
+
+__Overview of workflow:__
+* `mmseqs_wf_bsub.sh`: pipeline for running mmseqs2 (builds database and clusters sequences).  
+* `CLUSTER_STATS.sh`: generate human vs mouse analyses for clusters.
+
 
 #### `mmseqs_wf_bsub.sh`
 Build protein cluster databases from concatenated protein sequence file.
@@ -192,57 +204,20 @@ __Notes:__
 
 #### Other scripts in this directory:
 * `CLUSTER_STATS.sh`: run in the `CLUS_X` directory to generate human vs mouse statistics for comparing cluster membership. Output is written to `CLUS_x/tmp/cluster_stats.out`.
+* `compile_membership.sh`
+
 
 
 ### `3-build-species-pangenomes/`
 
-This directory features the pangenome building and analysis pipelines. Two separate pipelines are available for building pangenomes, depending on whether you are working with a species-level assignment (i.e. a known species) or a supra-species assignment (i.e. a previously uncharacterised species). The remaining files facilitate analysis of these pangenomes.
+This directory includes the scripts for building and functionally annotating species pangenomes.
 
-#### `get.species_pangenome_v2.sh`
-Build a host-specific pangenome for a __known__ species. 
-
-__Requirements:__
-* eggNOG-mapper v2.0.1
-* InterProScan v5.39-77.0-W01
-* bsub.py v0.42.1
-
-This pipeline was coded for running within LSF cluster environments.
-
-__Usage:__
-```
-get.species_pangenome_v2.sh -i <"TAXON"> -t <THREADS> -H <HOST> -CEI
-``` 
-Arguments:  
-Input:  
-`-i` Taxonomical level to compare in quotation marks e.g.  
-  * `-i "s__Lactobacillus johnsonii"` will get all genomes for this species
-  * `-i "f__Muribaculaceae"` will get any genome that has been classified as a member of the Muribaculaceae family, including those assigned at genus or species taxonomic ranks  
-  * `-i "Muribaculaceae"` (no rank tag) will get genomes that have been assigned a terminal rank of Muribaculaceae at the family level i.e. no genus- or species- level assignment  
-
-`-t` number of threads with which to run analyses  
-`-q` queue to submit jobs to [default: normal]    
-`-H` Specifiy a host - either `HUMAN` or `MOUSE`  
-
-Output - pick one of the following options: [default: `-p`]  
-`-o` specify the output directory in which to generate the results  
-`-p` supply path to directory in which to build output directory that is the same name as the taxonomical level supplied [default: `./<i>`]  
-
-Action:  
-`-C` get gene clusters that are unique and shared between each host.  
-`-l` sequence identity threshold of clusters (use with `-C`). Can be one of 50, 80, 90 or 100. [default: 90]  
-`-E` run eggNOG v2 on host-specific and shared clusters.  
-`-I` run InterProScan on pangenome.  
+__Overview of workflow:__
+* `get.pangenome_MGBC1094.sh`: build and functionally annotate a species pangenome from the clustered protein catalogue from phase 2. eggNOG v2 and InterProScan v5 are run in parallel to generate functional annotations.
 
 
-__Notes:__
-- need to update the paths to the required data:
-  * see links to the protein cluster files above
-      * path to directory containing CLUS_X directories
-  * taxonomy files (requires the output from `get_lowest_taxonomy_v1.0.R`)
-
-
-#### `get.unknown_species_pangenome_v2.sh`
-Build a host-specific pangenome for a __previously uncharacterised__ species i.e. cannot be assigned to a species-level taxonomic rank by GTDB-Tk. 
+#### `get.pangenome_MGBC1094.sh`
+Build a host-specific pangenome for a species using a clustered protein catalogue. 
 
 __Requirements:__
 * eggNOG-mapper v2.0.1
@@ -253,130 +228,187 @@ This pipeline was coded for running within LSF cluster environments.
 
 __Usage:__
 ```
-get.unknown_species_pangenome_v2.sh -i <GENOME_ID> -t <THREADS> -H <HOST> -CEI
+get.pangenome_MGBC1094.sh -i <GENOME_REP_ID> -t <THREADS> -q <QUEUE> -H <HOST> -p <OUT_DIR> -CEI -l <SEQID>
 ``` 
 Arguments:  
-Input:  
-`-i` representative genome identifier (currently: genome name) without any .fna or .fa suffix   
-`-t` number of threads with which to run analyses  
-`-q` queue to submit jobs to [default: normal]    
-`-H` Specifiy a host - either `HUMAN` or `MOUSE`  
+Input [REQUIRED]:
+`-i`      Representative genome id without file suffix (i.e. .fna, .fa)  
+`-t`      Number of threads with which to run analyses.  
+`-q`      Queue to submit jobs to, for use with cluster analysis [default: normal]  
+`-H`      Specify host - either HUMAN or MOUSE.  
 
-Output - pick one of the following options: [default: `-p`]  
-`-o` specify the output directory in which to generate the results  
-`-p` supply path to directory in which to build output directory that is the same name as the taxonomical level supplied [default: `./<i>`]  
+Output - pick one of the following options:  
+`-o`      Output directory in which to generate the results, mutually exclusive with -p [-p flag is default option].  
+`-p`      Path to directory to build a unique output directory (e.g. REP_ID.TAX.HOST) [default: .]  
+_NB:_ For smooth integration with downstream pipelines, I recommend using `-p HUMAN` or `-p MOUSE` for human and mouse pangenomes respectively, run from the same directory.   
 
 Action:  
-`-C` get gene clusters that are unique and shared between each host.  
-`-l` sequence identity threshold of clusters (use with `-C`). Can be one of 50, 80, 90 or 100. [default: 90]  
-`-E` run eggNOG v2 on host-specific and shared clusters.  
-`-I` run InterProScan on pangenome.  
+`-C`      Build pangenome using mmseqs gene clusters.  
+`-l`      Protein cluster sequence identity threshold to use with `-C`. Can be one of 50, 80, 90 or 100 [default: 90]  
+`-E`      Run eggNOG v2 on pangenome.  
+`-I`      Run InterProScan on pangenome.  
 
 
 __Notes:__
-- need to update the paths to the required data:
-  * see links above for access to the protein cluster catalogues
-  * taxonomy files (requires the output from `get_lowest_taxonomy_v1.0.R`)
-  * 95% ANI output files for mouse
-  * human genome-genome rep index
-
-
-#### `analyse.species-pangenome_v3.sh`
-
-Analyse the __eggNOG-mapper v2__ output for a pangenome.
-
-__Requirements:__
-* R v3.6.0
-
-This pipeline was coded for running within LSF cluster environments.
-
-__Usage:__
+- need to update the path variables to the required data inside the file:
+  * `$LINCLUST_DB`: path to directory containing CLUS_X directories
+      * this will be the same directory as supplied to `mmseqs_wf_bsub.sh` with the `<-o>` flag
+  * `$M_REPMEMS` and `$H_REPMEMS`: tab-separated representative genome index files for each host, where 
+        * column 1 contains the genome id,
+        * column 2 contains the representative genome id for the species cluster,
+        * column 3 indicates the lowest taxonomy as determined by GTDB-Tk and `get_lowest_taxonomy_v1.0.R`
+      * `mgbc_rep_index_26640.tsv` and `uhgg_rep_index_100456.tsv` are given as examples in the `data/` directory
+      * e.g.
 ```
-analyse.species-pangenome_v3.sh -i <PANGENOME_DIR> -o <OUTDIR> -H <HOST>
-``` 
-Arguments:  
-`-i` path to pangenome directory   
-`-D` directory containing the eggNOG reference databases [not implemented]  
-`-o` directory to write to [default: <-i>/eggnog-out]  
-`-H` specifiy a host organism - either `HUMAN` or `MOUSE`  
-
-
-__Notes:__
-- need to update the paths to the required data:
-  * taxonomy files (requires the output from `get_lowest_taxonomy_v1.0.R`)
-  * [MGBC-UHGG combined catalogue - 90% sequence identity clusters (mgbc-uhgg_clus90.tar.gz)](https://zenodo.org/record/4840586/files/mgbc-uhgg_clus90.tar.gz?download=1)
-      * `CLUS_90/mmseqs_cluster.tsv`
-  * UHGP 100% cluster membership file.
-      * `get_cluster_membership.out.tsv`
-      * will include code to be able to access
-  * the KEGG database directory
-      * `data/KEGG_DBs`
- 
- 
-#### `analyse.species-pangenome_IPS_v3.sh`
-
-Analyse the __InterProScan v5__ output for a given pangenome.
-
-__Requirements:__
-* R v3.6.0
-
-This pipeline was coded for running within LSF cluster environments.
-
-__Usage:__
+MGBC000001	MGBC000001	g__Schaedlerella
+MGBC000002	MGBC129157	s__CAG-485 sp002362485
+MGBC000003	MGBC000003	g__Schaedlerella
+MGBC000005	MGBC000328	s__Phocaeicola vulgatus
+MGBC000006	MGBC000320	s__Schaedlerella sp000364245
 ```
-analyse.species-pangenome_IPS_v3.sh -i <PANGENOME_DIR> -o <OUTDIR> -H <HOST>
-``` 
-Arguments:  
-`-i` path to pangenome directory   
-`-D` directory containing the IPS reference databases [not implemented]  
-`-o` directory to write to [default: <-i>/IPS-out]  
-`-H` specifiy a host organism - either `HUMAN` or `MOUSE`  
-
-
-__Notes:__
-- need to update the paths to the required data:
-  * taxonomy files (requires the output from `get_lowest_taxonomy_v1.0.R`)
-      * `data/mouse-18075.tsv`
-      * `data/human-100456.tsv`
-  * [MMGC/UHGP MMseqs 90% cluster membership file](https://doi.org/10.5281/zenodo.4300919)  
-      * `CLUS_90/mmseqs_cluster.tsv`
-  * UHGP 100% cluster membership file.
-      * `get_cluster_membership.out.tsv`
-      * will include code to be able to make
-  * the InterPro family database
-      * `data/InterPro_DBs`
-      
+   * the `3-build-species-pangenomes/` directory needs to be part of your `$PATH` system variable to access `GET_FASTA_FROM_CONTIGS_v4.py`
+   * output files are written to `$OUTDIR/cluster_"<-l>".out`
+      * eggNOG output -->  `<-i>.dmnd.emapper.annotations`
+      * InterProScan output --> `ips_out.gff`
 
 The other scripts in this directory are used by the pipelines discussed above.
 
 
 ### `4-functional-analyses/`
 
-This directory includes the scripts used to compare the predicted presence of specific functions in the microbiotas of humans and mice. With the exception of the blast pipeline, these scripts utilise the functional annotations of the species pangenomes. 
+This directory includes the scripts for comparing the functional profiles of bacterial species of the human and mouse gut microbiota. 
 
-#### Scripts in this directory:
-##### `analyse.ENZYME_v2.sh`
- * takes an enzyme EC number and returns the number of enzyme-encoding genomes for each pangenome. 
-    * The script also provides the number of total genomes for each pangenome, as well as their taxonomy and host-membership.
-    * Facilitates easy interrogation of specific enzymatic functions.
-```
-analyse.ENZYME_v2.sh -i <ENZYME_EC>
-``` 
+__Overview of workflow:__
+* `summarise.eggnog_annotations.sh`: summarise eggNOG v2 annotations generated with `get.pangenome_MGBC1094.sh`.
+* `summarise.ips_gff.sh`: summarise InterProScan v5 annotations generated with `get.pangenome_MGBC1094.sh`.  
+* `summarise.all_functions.MGBC120421.sh`: compile data for all pangenomes and generate functional profiles for each species.
+* `build.function_presence_absence.sh`: generate presence-absence matrices for each functional scheme.
+* `analyse.pangenome-distance_MGBC.R`: generate distance matrices for each functional scheme.
 
-##### `analyse.IPR-out_v2.sh`
- * takes an InterPro family id (IPRXXXXXX) and returns the number of family-encoding genomes for each pangenome, with a similar output to the `analyse.ENZYME_v2.sh` script above.
+
+#### `summarise.eggnog_annotations.sh`
+
+Summarise the eggNOG v2 output annotation file for a pangenome, returning feature-gene and gene-genome indices. Additionally calculates annotation efficiency data.
+
+This pipeline was coded for running within LSF cluster environments.
+
+__Usage:__
 ```
-analyse.IPR-out_v2.sh -i <IPR_ID>
+summarise.eggnog_annotations.sh -i <EGGNOG_OUT> -a <FAA> -o <OUTDIR> -g <GENOME_ID> -H <HOST>
 ``` 
+Arguments:  
+`-i`  Path to emapper v2 output file from `get.pangenome_MGBC1094.sh` i.e. `<-i>.dmnd.emapper.annotations`  
+`-a`  Path to original fasta file used for eggNOG annotation i.e. `$OUTDIR/Cluster_"<-l>"/extracted_seqs.faa`   
+`-o`  Directory to write to [REQUIRED]  
+`-g`  Path to `genome_ids.txt` file in pangenome `$OUTDIR`  
+`-H`  Host organism: either HUMAN or MOUSE  
+
+
+__Notes:__
+- need to update the path variables to the required data inside the file:
+  * `$CLUS_MEM`: path to cluster membership file for the protein cluster catalogue used to generate the pangenome
  
-##### `compare.HM_eggnog-out.sh`
- * summarises the number of pangenomes that are predicted to encode each identifier for each KEGG database (CAZY, COG, ENZYME, KO, MODULE, PATHWAY, REACTION) for each host, outputing `<DB>.mouse.tsv` and `<DB>.human.tsv`. Where these identifiers are shared between hosts, these data are compiled and presented together in `<DB>.shared.tsv`.
-```
-compare.HM_eggnog-out.sh <OUTDIR> <PATH_TO_HUMAN_PANGENOME_DIR> <PATH_TO_MOUSE_PANGENOME_DIR> 
-``` 
+ 
+#### `summarise.ips_gff.sh`
 
-##### `blast-out_v4.sh`
- * takes the amino acid sequence for a gene and runs a protein BLAST against the CLUS_100 gene catalogue. It combines positive hits with aligned sequence metadata and returns a summary document comparings equence identity and taxonomic location between human and mouse gut commensals. This approach facilitates analysis of proteins/predicted functions thta may not be well-documented in protein databases.
+Summarise the InterProScan v5 output annotation file for a pangenome, returning feature-gene and gene-genome indices. Additionally calculates annotation efficiency data.
+
+This pipeline was coded for running within LSF cluster environments.
+
+__Usage:__
 ```
-blast-out_v4.sh -i <GENE_FAA> -s <SEQ_IDENT> -o <OUTDIR>
+summarise.ips_gff.sh -i <IPS_OUT> -a <FAA> -o <OUTDIR> -g <GENOME_ID> -H <HOST>
 ``` 
+Arguments:  
+`-i`      Path to IPS output file from `get.pangenome_MGBC1094.sh` i.e. `ips_out.gff`  
+`-a`      Path to original fasta file used for IPS i.e. `$OUTDIR/Cluster_"<-l>"/extracted_seqs.faa`   
+`-o`      Directory to write to [REQUIRED]  
+`-g`      Path to genome ids file.  
+`-H`      Host organism: either HUMAN or MOUSE  
+
+
+__Notes:__
+- need to update the path variables to the required data inside the file:
+  * `$CLUS_MEM`: path to cluster membership file for the protein cluster catalogue used to generate the pangenome
+  * `$IPS_DATA`: path to the InterPro database i.e. `data/InterPro_DBs/`
+
+
+
+#### `summarise.all_functions.MGBC120421.sh`
+
+Summarises the functional annotations generated for all pangenomes using the `summarise.ips_gff.sh` and `summarise.eggnog_annotations.sh` scripts described above. Generates analyses of human and mouse specific functional features as well as total feature-level analsyes. Automatically runs `summarise.pangenome_function.MGBC120421.sh` on the pangenomes to build feature-genome indexes ready for downstream distance matrix calculation.
+
+
+__Requirements:__
+* Requires `summarise.ips_gff.sh` and `summarise.eggnog_annotations.sh` to have already been run on all pangenomes, and their temporary files to still be available.
+
+This pipeline was coded for running within LSF cluster environments, and runs jobs (via a bsub array) for paralellising analyses.
+
+__Usage:__
+```
+summarise.all_functions.MGBC120421.sh <OUTDIR>
+``` 
+Arguments:  
+The script only needs to be run with the output directory specified. The script builds this directory if it does not already exist. 
+
+__Notes:__
+- need to update the path variables to the required data inside the file:
+  * `$PANGENOMES`: path to the directory where `HUMAN` and `MOUSE` directories exist, containing the pangenomes for each host organism. 
+
+
+#### `build.function_presence_absence.sh`
+
+Compiles species functional profiles to generate genome-function presence-absence matrices for each InterProScan and eggNOG functional scheme. 
+
+__Usage:__
+```
+build.function_presence_absence.sh <OUTDIR>
+``` 
+Arguments:  
+The script only needs to be run with the output directory (e.g. DISTANCE_MATRICES) specified. The script builds this directory if it does not already exist. 
+
+__Notes:__
+- need to update the path variables to the required data inside the file:
+  * `$HUMAN` and `$MOUSE`: paths to the `HUMAN` and `MOUSE` pangenome directories, containing the species pangenomes for each host organism. 
+
+
+#### `build.function_presence_absence.sh`
+
+Compiles species functional profiles to generate genome-function presence-absence matrices for each InterProScan and eggNOG functional scheme. 
+
+__Usage:__
+```
+build.function_presence_absence.sh <OUTDIR>
+``` 
+Arguments:  
+The script only needs to be run with the output directory (e.g. DISTANCE_MATRICES) specified. The script builds this directory if it does not already exist. 
+
+__Notes:__
+- need to update the path variables to the required data inside the file:
+  * `$HUMAN` and `$MOUSE`: paths to the `HUMAN` and `MOUSE` pangenome directories, containing the species pangenomes for each host organism. 
+
+
+#### `analyse.pangenome-distance_MGBC.R`
+
+Takes presence-absence matrix as input and produces a distance matrix from the functional profiles of each species.
+
+__Requirements:__
+* R v3.6.0
+
+__Usage:__
+```
+analyse.pangenome-distance_MGBC.R -i <INFILE> -m <DIST_METHOD> -p <PREFIX> -o <OUTDIR>
+``` 
+Arguments:  
+`-i` Path to tsv file containing data for feature distribution across a core or pangenome (e.g. output from `build.function_presence_absence.sh`).  
+`-m` Which METHOD to use for distance matrix calculation. Any of the distance methods supported by Vegan's 'vegdist' function are allowed.  
+`-b` Flag to use BINARY distance analyses. \[default: FALSE\]  
+`-p` Prefix to give files that are being written.  
+`-o` Directory to write output files to.  
+
+__Notes:__
+- need to update the path variables to the required data inside the file:
+  * `$HUMAN` and `$MOUSE`: paths to the `HUMAN` and `MOUSE` pangenome directories, containing the species pangenomes for each host organism. 
+
+
+The other scripts in this directory are used by the pipelines discussed above.
