@@ -59,6 +59,10 @@ This archive is structured as follows :
 Please read on for a detailed over-view of each directory. More specific information can be found in the README files in the relevant directory.
 
 
+## `figures/`
+
+The _figures_ directory contains all the scripts needed to reproduce the figures for the manuscript. 
+
 
 ## `src/`
 
