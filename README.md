@@ -1,7 +1,7 @@
 The Mouse Gastrointestinal Bacterial Catalogue (MGBC)
 ============================================
 
-Welcome to the MGBC repository! Here you will find the pipelines, scripts and data files for analysing mouse gut microbiome samples at buildling the MGBC genome catalogue.
+Welcome to the MGBC repository! Here you will find the pipelines, scripts and data files for analysing mouse gut microbiome samples and buildling the MGBC genome catalogue.
 
 
 This work is currently under review for publication :microscope:.
