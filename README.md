@@ -48,25 +48,19 @@ __The global mouse metagenome compilation:__
 
 This repository is structured as follows :
 
-- the _src_ directory contains the source materials and pipelines to be able to reproduce our analyses. These pipelines include:
+- the `src` directory contains the source materials and pipelines to be able to reproduce our analyses. These pipelines include:
    1) metagenome binning and MAG synthesis
    2) construction of protein catalogues
    3) assembly and functional annotation of species pangenomes
    4) species-level functional analyses
 
-- the _data_ directory contains the reference datasets for the functional schemes and some example intermediate output files for _src_
+- the `data` directory contains the reference datasets for the functional schemes and some example intermediate output files for `src`
 
-- the _figures_ directory contains the scripts used to build the figures for the manuscript
+- the `figures` directory contains the scripts used to build the figures for the manuscript
 
-- the _supp_ directory contains a description of the Supplementary Data Tables from the paper
+- the `supp` directory contains a description of the Supplementary Data Tables from the paper
 
-Please read on for a detailed over-view of the _src_ directory. Specific information on the other directories can be found in the relevant README files.
-
-
-## `figures/`
-
-The _figures_ directory contains all the scripts needed to reproduce the figures for the manuscript. 
-
+Please read on for a detailed over-view of the `src` directory. Specific information on the other directories can be found in the relevant README files.
 
 ## `src/`
 
