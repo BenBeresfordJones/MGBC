@@ -1,0 +1,239 @@
+---
+title: "MGBC_Fig6"
+author: "Benjamin Beresford-Jones"
+date: "30/05/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Required datasets:
+- butyrate_species_summary.tsv
+- MGBC_1094_tax_paths.tsv
+- MCC_276_rep_tax.tsv
+- butyrate_growout_data.csv
+
+
+## load libraries
+```{r}
+library(magrittr)
+library(ggplot2)
+library(ggpubr)
+library(grid)
+library(gridExtra)
+library(reshape2)
+```
+
+## set defaults
+```{r}
+INDIR="Fig6_data/" # unzip
+# OUTDIR="CHANGEME" # change to save figures to specified directory
+
+bS_cn <- c("Sample", "Species", "Reads_assigned", "Read_frac")
+tax_cn <- c("Domain", "Phylum", "Class", "Order", "Family", "Genus", "Species")
+
+f1_cn <- c("MGBC_id", "Orig_name", "Study", "Completeness", "Contamination", "Size", "N_contigs", "N50", "MCL", "QS", "CMseq", "Qual_level", "Lowest_tax_gtdb", "Lowest_tax_rank", "GTDB_taxonomy")
+
+dm_cn <- c("Reference", "Genome", "Pangenome_frac", "N_genomes", "Total_genomes", "Mean_seq_id", "Max_seq_id", "Min_seq_id", "Mean_bit_score", "Clus_90_rep", "Species", "Host", "Taxonomy")
+```
+
+## build colour palettes
+```{r}
+phycol=c("#377eb8","#8CB302","#008C74","#d95f02","#FF974F","#FFED6F","#FDCDAC","#ffd92f","#e22426","#B3B3B3","#FBB4AE","#984ea3","#35478C","#7FC97F","#FF73C5","#BF5693")
+phylabs=c("Actinobacteriota","Bacteroidota","Campylobacterota","Cyanobacteria","Deferribacterota","Desulfobacterota","Elusimicrobiota","Firmicutes","Firmicutes_A","Firmicutes_B","Firmicutes_C","Proteobacteria","Spirochaetota","Thermotogota","Verrucomicrobiota","Verrucomicrobiota_A")
+names(phycol) <- phylabs
+
+tax_level_col <- get_palette("Paired", k = 3)
+tax_level_col[3] <- "#45BF55"
+names(tax_level_col) <- c("Species", "Genus", "Family")
+
+but_palette <- c("BCOAT"="#e68200",
+                 "PTB_BUK"="purple", 
+                 "None"="darkgrey")
+```
+
+
+# Load data
+```{r}
+# butyrate gene data
+but <- read.delim(file=paste0(INDIR, "butyrate_species_summary.tsv"), header=F, 
+                  col.names = c("Feature", "Species_rep", "Pangenome_frac", "Positive_genomes", "Total_genomes", "Species", "Host", "Taxonomy"))
+bcoat <- unique(but$Feature)[1] # IPR023990
+ptb_buk <- unique(but$Feature)[2] # IPR011245:IPR014079
+
+# Get novel species-level taxonomy data
+ntax <- read.delim(file = paste0(INDIR, "MGBC_1094_tax_paths.tsv"), header = FALSE, 
+                   col.names = c("Domain", "Phylum", "Class", "Order", "Family", "Genus", "Species"))
+ntax <- apply(ntax, 2, function(x) {gsub(x=x, pattern = ".__", replacement = "")} ) %>% as.data.frame
+
+# get data for the MCC
+MCC_tax <- read.delim(file = paste0(INDIR, "MCC_276_rep_tax.tsv"), header = FALSE, col.names = c("MGBC", tax_cn))
+MCC_tax <- apply(MCC_tax, 2, function(x) {gsub(x=x, pattern = ".__", replacement = "")} ) %>% as.data.frame
+
+# growout data
+bgo <- read.delim(file = paste0(INDIR, "butyrate_growout_data.csv"), header=T, sep = ",")
+```
+
+### add rank metdata to dataframe
+```{r}
+but$Rank <- lapply(strsplit(but$Species, split = "__"), function(x) {x[1]}) %>% 
+  unlist %>% 
+  gsub(pattern = c("s"), replacement = c("Species")) %>%
+  gsub(pattern = c("g"), replacement = c("Genus")) %>%
+  gsub(pattern = c("f"), replacement = c("Family")) %>%
+  gsub(pattern = c("o"), replacement = c("Order"))
+```
+
+## 70% genomes is a reasonable threshold for a butyrate-encoding species 
+```{r}
+lapply(split(but, but$Feature), function(x) {
+  ggscatter(x, x = "Total_genomes", y = "Positive_genomes", 
+            color = "Host", palette = "jco", 
+            title = unique(x$Feature)) +
+    geom_abline(intercept = 0, slope = 0.7)
+})
+```
+
+# Figures 6a-d
+
+```{r}
+MB <- but[but$Host == "MOUSE",]
+
+MB_ns_level <- MB$Species
+
+for (i in grep(pattern = "s__", MB$Species, invert = TRUE)) {
+  RANK <- lapply(strsplit(MB$Species[i], split = "__"), function(x) {x[1]}) %>% unlist
+  TAX_STEM <- lapply(strsplit(MB$Species[i], split = "__"), function(x) {x[2]}) %>% unlist
+  
+  if (RANK == "g") {
+    SPECIES <- paste0("s__", TAX_STEM, " ", MB$Species_rep[i])
+  } else {
+    SPECIES <- paste0("s__", TAX_STEM, "_NOV ", MB$Species_rep[i])
+  }
+  
+  MB$Species[i] <- SPECIES
+}
+
+HB <- but[but$Host == "HUMAN",]
+```
+
+```{r}
+MB$Print_names <- gsub(pattern = "s__", replacement = "", MB$Species) # all names should be species-level
+HB$Print_names <- gsub(pattern = ".__", replacement = "", HB$Species) # remove all rank indicators
+```
+
+
+### Mouse
+```{r}
+# bcoat
+bold_labels <- ifelse(head(MB$Print_names[MB$Feature == bcoat] %in% MCC_tax$Species, n=20), "bold", "plain") 
+p_mb <- ggbarplot(MB[MB$Feature == bcoat,], x = "Print_names", "Positive_genomes", 
+               color = "Rank", fill = "Rank", 
+               palette = tax_level_col,
+               top = 20,
+               sort.by.groups = FALSE, sort.val = "asc", 
+               title = paste("Mouse BCoAT"),
+               ylab = FALSE) +
+  theme(axis.text.y = element_text(face = rev(bold_labels)))
+ggpar(p_mb, rotate = TRUE, ylab = "Genome count",
+      legend = "right", legend.title = "Assigned taxonomic rank")
+
+# ptb_buk
+bold_labels <- ifelse(head(MB$Print_names[MB$Feature == ptb_buk] %in% MCC_tax$Species, n=20), "bold", "plain") 
+p_mp <- ggbarplot(MB[MB$Feature == ptb_buk,], x = "Print_names", "Positive_genomes", 
+               color = "Rank", fill = "Rank", 
+               palette = tax_level_col,
+               top = 20,
+               sort.by.groups = FALSE, sort.val = "asc", 
+               title = paste("Mouse PTB/BUK"),
+               ylab = FALSE) +
+  theme(axis.text.y = element_text(face = rev(bold_labels)))
+ggpar(p_mp, rotate = TRUE, ylab = "Genome count", 
+      legend = "right", legend.title = "Assigned taxonomic rank")
+
+```
+
+### Human
+```{r}
+p_hb <- ggbarplot(HB[HB$Feature == bcoat,], x = "Print_names", "Positive_genomes", 
+               color = "Rank", fill = "Rank", 
+               palette = tax_level_col,
+               top = 20,
+               sort.by.groups = FALSE, sort.val = "asc", 
+               title = paste("Human BCoAT"),
+               ylab = FALSE)
+ggpar(p_hb, rotate = TRUE, ylab = "Genome count",
+      legend = "right", legend.title = "Assigned taxonomic rank")
+
+
+p_hp <- ggbarplot(HB[HB$Feature == ptb_buk,], x = "Print_names", "Positive_genomes", 
+               color = "Rank", fill = "Rank", 
+               palette = tax_level_col,
+               top = 20,
+               sort.by.groups = FALSE, sort.val = "asc", 
+               title = paste("Human PTB/BUK"),
+               ylab = FALSE)
+ggpar(p_hp, rotate = TRUE, ylab = "Genome count", 
+      legend = "right", legend.title = "Assigned taxonomic rank")
+```
+
+```{#r}
+# save files
+# Fig 5b
+pdf(paste0(OUTDIR, "MGBC_fig5_bcoat_genomes_mouse.pdf"), height = 4, width = 7)
+ggpar(p_mb, rotate = TRUE, ylab = "Genome count",
+      legend = "right", legend.title = "Assigned taxonomic rank")
+dev.off()
+
+# Fig 5d
+pdf(paste0(OUTDIR, "MGBC_fig5_ptb_buk_genomes_mouse.pdf"), height = 4, width = 7)
+ggpar(p_mp, rotate = TRUE, ylab = "Genome count", 
+      legend = "right", legend.title = "Assigned taxonomic rank")
+dev.off()
+
+# Fig 5a
+pdf(paste0(OUTDIR, "MGBC_fig5_bcoat_genomes_human.pdf"), height = 4, width = 7)
+ggpar(p_hb, rotate = TRUE, ylab = "Genome count",
+      legend = "right", legend.title = "Assigned taxonomic rank")
+dev.off()
+
+# Fig 5b
+pdf(paste0(OUTDIR, "MGBC_fig5_ptb_buk_genomes_human.pdf"), height = 4, width = 7)
+ggpar(p_hp, rotate = TRUE, ylab = "Genome count", 
+      legend = "right", legend.title = "Assigned taxonomic rank")
+dev.off()
+```
+
+
+# Figure 6e
+
+```{r}
+bgo$Print_names <- gsub(pattern = "s__", replacement = "", bgo$Species)
+bgo$Print_names[bgo$Print_names == "Media"] <- "Media control"
+
+bgo$Gene <- factor(bgo$Gene, levels = unique(bgo$Gene))
+```
+
+```{r}
+# remove Kineothrix as OD <0.1 (not valid as did not grow well enough)
+p <- ggbarplot(bgo, x = "Print_names", y = "Butyrate", 
+          fill = "Gene", palette = but_palette, add = c("mean_se"), 
+          order = unique(bgo$Print_names), 
+          remove = "Kineothrix sp000403275",
+          ylab = "[Butyrate] (mM)", 
+          xlab = FALSE)
+ggpar(p, rotate = FALSE,legend.title = "Terminal pathway", legend = "right", x.text.angle = 30)
+```
+
+```{#r}
+# save file
+pdf(paste0(OUTDIR, "MGBC_fig5_butyrate_growout_validation_minusKineo.pdf"), height = 6, width = 7)
+ggpar(p, rotate = FALSE, legend.title = "Terminal pathway", legend = "right", x.text.angle = 30)
+dev.off()
+```
+
+
+
+

@@ -1,0 +1,202 @@
+---
+title: "MGBC_Fig1"
+author: "Benjamin Beresford-Jones"
+date: "29/05/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Required datasets:
+- bracken_data_postqc_2664.tsv
+- MGBC_1094_tax_paths.tsv
+- MCC_276_rep_tax.tsv
+- final_metadata_2446.csv
+- MCC_novel_cultured_reps_62.tsv
+- MCC_reps_132.tsv
+
+
+## load libraries
+```{r}
+library(magrittr)
+library(ggplot2)
+library(ggpubr)
+library(grid)
+library(gridExtra)
+```
+
+## set defaults
+```{r}
+INDIR="Fig1_data/" # unzip
+# OUTDIR="CHANGEME" # change to save figures to specified directory
+
+bS_cn <- c("Sample", "Species", "Reads_assigned", "Read_frac")
+tax_cn <- c("Domain", "Phylum", "Class", "Order", "Family", "Genus", "Species")
+
+f1_cn <- c("MGBC_id", "Orig_name", "Study", "Completeness", "Contamination", "Size", "N_contigs", "N50", "MCL", "QS", "CMseq", "Qual_level", "Lowest_tax_gtdb", "Lowest_tax_rank", "GTDB_taxonomy")
+
+tax_order <- c("Domain", "Phylum", "Class", "Order", "Family", "Genus", "Species")
+```
+
+## build colour palettes
+```{r}
+phycol=c("#377eb8","#8CB302","#008C74","#d95f02","#FF974F","#FFED6F","#FDCDAC","#ffd92f","#e22426","#B3B3B3","#FBB4AE","#984ea3","#35478C","#7FC97F","#FF73C5","#BF5693")
+phylabs=c("Actinobacteriota","Bacteroidota","Campylobacterota","Cyanobacteria","Deferribacterota","Desulfobacterota","Elusimicrobiota","Firmicutes","Firmicutes_A","Firmicutes_B","Firmicutes_C","Proteobacteria","Spirochaetota","Thermotogota","Verrucomicrobiota","Verrucomicrobiota_A")
+names(phycol) <- phylabs
+```
+
+## Load datasets
+```{r}
+# Bracken output data for QC'ed samples, classified using the species-level MGBC_1094 genome database (n=1094)
+bS <- read.delim(file = paste0(INDIR, "bracken_data_postqc_2664.tsv"), header = TRUE)
+
+# Taxonomy for species-level data
+ntax <- read.delim(file = paste0(INDIR, "MGBC_1094_tax_paths.tsv"), header = FALSE, col.names = tax_cn)
+
+# MCC taxonomies
+MCC_tax <- read.delim(file = paste0(INDIR, "MCC_276_rep_tax.tsv"), header = FALSE, col.names = c("MGBC", tax_cn))
+
+# Metagenome metadata
+md <- read.delim(file = paste0(INDIR, "final_metadata_2446.csv"), header = TRUE, sep = ",")
+colnames(md)[2] <- "Sample"
+
+# MCC cultured reps
+MCC_n <- read.delim(file = paste0(INDIR, "MCC_novel_cultured_reps_62.tsv"), header = FALSE, col.names = c("MGBC_id", "Taxonomy"))
+
+# MCC all reps
+MCC_t <- read.delim(file = paste0(INDIR, "MCC_reps_132.tsv"), header = FALSE, col.names = c("MGBC_id", "Taxonomy"))
+```
+
+
+```{r}
+ntax <- apply(ntax, 2, function(x) {gsub(x=x, pattern = ".__", replacement = "")} ) %>% as.data.frame
+MCC_tax <- apply(MCC_tax, 2, function(x) {gsub(x=x, pattern = ".__", replacement = "")} ) %>% as.data.frame
+```
+
+```{r}
+MCC_t <- cbind(MCC_t, strsplit(MCC_t$Taxonomy, split = ";.__") %>% do.call("rbind", .))
+colnames(MCC_t)[c(3:ncol(MCC_t))] <- tax_cn
+```
+
+```{r}
+MCC_n <- cbind(MCC_n, 
+                strsplit(MCC_n$Taxonomy, split = ";.__") %>% do.call("rbind", .))
+colnames(MCC_n)[c(3:ncol(MCC_n))] <- tax_order
+
+MCC_t <- cbind(MCC_t, 
+                strsplit(MCC_t$Taxonomy, split = ";.__") %>% do.call("rbind", .))
+colnames(MCC_t)[c(3:ncol(MCC_t))] <- tax_order
+```
+
+
+```{r}
+# generate summary data for each species
+
+species_summary <- lapply(split(bS, f = bS$Species), function(x) {
+  SPECIES = unique(x$Species)
+  MEAN = mean(x$Read_frac)
+  PREV = length(which(x$Read_frac >= 0.01)) # use >0.01% of reads to define prevalence # checked using 0.1 -> max prev ~70%
+  PREV_FRAC = PREV / length(unique(bS$Sample)) * 100
+  MEAN_OF_PREV = mean(x$Read_frac[which(x$Read_frac >= 0.1)])
+  MAX = max(x$Read_frac)
+  
+  data.frame(Species=SPECIES,
+             All_mean=MEAN,
+             Mean_of_frac=MEAN_OF_PREV,
+             Prevalence_count=PREV,
+             Prevalence_frac=PREV_FRAC,
+             Max=MAX)
+}) %>% do.call("rbind", .)
+
+species_summary <- merge(x = species_summary, y = ntax, by = "Species")
+```
+
+
+# Figure 1b
+```{r}
+MCC_n_df <- species_summary[species_summary$Species %in% MCC_n$Species,]
+prev_MCC <- MCC_n_df[order(MCC_n_df$Prevalence_frac, decreasing = TRUE),]
+prev_MCC_data <- bS[which(bS$Species %in% prev_MCC$Species),]
+prev_MCC_data <- merge(x = prev_MCC_data, y = ntax, by = "Species")
+
+p1 <- ggline(prev_MCC_data, x = "Species", y = "Read_frac",
+            plot_type = "p", 
+            order = rev(prev_MCC$Species), 
+            color = "Phylum", fill = "Phylum", palette = phycol)
+p1 <- ggpar(p1, rotate = TRUE, ylab = "% Abundance", legend = "none") +
+  theme(
+    plot.margin = unit(c(1,3,1,3), "mm"),
+    axis.title.y = element_blank()
+  )
+
+p2 <- ggline(prev_MCC, x = "Species", y = "Prevalence_frac",
+             plot_type = "p",
+             order = rev(prev_MCC$Species),
+            color = "Phylum", fill = "Phylum", 
+            palette = phycol)
+p2 <- ggpar(p2, rotate = TRUE, ylab = "% Prevalence", legend = "none") +
+  theme(
+        axis.title.y = element_blank(), 
+        axis.text.y = element_blank(), 
+        axis.ticks.y = element_blank(),
+        axis.line.y = element_blank(),
+        plot.margin = unit(c(1,3,1,3), "mm"),
+        legend.position = "right"
+  ) 
+
+grid.arrange(p1,p2,ncol=2,widths=c(38/70,22/60))
+```
+
+```{#r}
+# save file
+pdf(paste0(OUTDIR, "MGBC_MCC_novel_abundance_prevalence.pdf"), height = 16, width = 8)
+grid.arrange(p1,p2,ncol=2,widths=c(38/70,22/60))
+dev.off()
+```
+
+
+# Figure 1c
+
+```{r}
+MCC_species_summary <- species_summary[species_summary$Species %in% MCC_tax$Species,]
+
+# coloured by taxonomy
+p <- ggscatter(MCC_species_summary, x = "Prevalence_frac", y = "All_mean", 
+               color = "Phylum", fill = "Phylum",
+               palette = phycol, 
+               xlab = "Prevalence", 
+               ylab = "Mean across all samples")
+ggpar(p, yscale = "log10")
+```
+
+```{r}
+MCC_species_summary$Cultured_status <- ifelse(MCC_species_summary$Species %in% MCC_t$Species[MCC_t$MGBC_id %in% MCC_n$MGBC_id], 
+                                              "Novel", "Cultured")
+
+p <- ggscatter(MCC_species_summary, x = "Prevalence_frac", y = "All_mean", 
+               color = "Cultured_status", fill = "Cultured_status", 
+               palette = c("Novel"="#002253", "Cultured"="lightgrey"), 
+               xlab = "Prevalence", 
+               ylab = "Mean abundance")
+ggpar(p, yscale = "log10", legend = "right", legend.title = "Previously cultured status")
+```
+
+```{#r}
+# save file
+pdf(paste0(OUTDIR, "MGBC_F1-MCC_prev_vs_abundance.pdf"), height = 5, width = 8)
+ggpar(p, yscale = "log10", legend = "right", legend.title = "Previously cultured status")
+dev.off()
+```
+
+
+
+
+
+
+
+
+
+
+

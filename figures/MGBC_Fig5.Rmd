@@ -1,0 +1,232 @@
+---
+title: "MGBC_Fig5"
+author: "Benjamin Beresford-Jones"
+date: "29/05/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Required datasets:
+- all_drug_summary.tsv
+- shared_rank_taxa.txt
+
+
+## load libraries
+```{r}
+library(magrittr)
+library(ggplot2)
+library(ggpubr)
+library(grid)
+library(gridExtra)
+```
+
+## set defaults
+```{r}
+INDIR="Fig5_data/" # unzip
+# OUTDIR="CHANGEME" # change to save figures to specified directory
+
+bS_cn <- c("Sample", "Species", "Reads_assigned", "Read_frac")
+tax_cn <- c("Domain", "Phylum", "Class", "Order", "Family", "Genus", "Species")
+
+f1_cn <- c("MGBC_id", "Orig_name", "Study", "Completeness", "Contamination", "Size", "N_contigs", "N50", "MCL", "QS", "CMseq", "Qual_level", "Lowest_tax_gtdb", "Lowest_tax_rank", "GTDB_taxonomy")
+
+dm_cn <- c("Reference", "Genome", "Pangenome_frac", "N_genomes", "Total_genomes", "Mean_seq_id", "Max_seq_id", "Min_seq_id", "Mean_bit_score", "Clus_90_rep", "Species", "Host", "Taxonomy")
+```
+
+## build colour palettes
+```{r}
+phycol=c("#377eb8","#8CB302","#008C74","#d95f02","#FF974F","#FFED6F","#FDCDAC","#ffd92f","#e22426","#B3B3B3","#FBB4AE","#984ea3","#35478C","#7FC97F","#FF73C5","#BF5693")
+phylabs=c("Actinobacteriota","Bacteroidota","Campylobacterota","Cyanobacteria","Deferribacterota","Desulfobacterota","Elusimicrobiota","Firmicutes","Firmicutes_A","Firmicutes_B","Firmicutes_C","Proteobacteria","Spirochaetota","Thermotogota","Verrucomicrobiota","Verrucomicrobiota_A")
+names(phycol) <- phylabs
+```
+
+## Load datasest
+```{r}
+dm <- read.delim(file = paste0(INDIR, "all_drug_summary.tsv"), header = F, col.names = dm_cn)
+dm <- dm[!dm$Reference %in% c("Ddes_1357-CutC", "Ddes_1358-CutD"),] # remove non drug metabolising genes from analysese
+
+shared_taxa <- read.delim(file = paste0(INDIR, "shared_rank_taxa.txt"), header=F,
+                             col.names=c("Taxa")) %>% unlist %>% as.character
+```
+
+```{r}
+tax_split <- strsplit(dm$Taxonomy, split = ";")
+
+dm$Phylum <- lapply(tax_split, function(x){x[2]}) %>% unlist
+dm$Class <- lapply(tax_split, function(x){x[3]}) %>% unlist
+dm$Order <- lapply(tax_split, function(x){x[4]}) %>% unlist
+dm$Family <- lapply(tax_split, function(x){x[5]}) %>% unlist
+dm$Genus <- lapply(tax_split, function(x){x[6]}) %>% unlist
+
+# 95% sequence id
+dm_95 <- dm[dm$Mean_seq_id >= 95,]
+
+dm_95_split <- split(dm_95, dm_95$Reference)
+dm_split <- split(dm, dm$Reference)
+```
+
+# barplot of all species with seqid >= 95
+```{r}
+lapply(dm_95_split, function(x) {
+  tmp_p <- lapply(split(x, f = x$Host), function(y) {
+    y$Frac <- y$N_genomes/sum(y$N_genomes)*100
+    tmp <- y
+  }) %>% do.call("rbind", .)  
+  
+  tmp_p$Species[tmp_p$Frac < 5] <- "Other"
+  
+  ggbarplot(tmp_p, x = "Host", y = "Frac", fill = "Species", 
+            title = unique(x$Reference)) +
+    theme(legend.position = "right")
+  
+  })
+```
+
+# generate representative figures for paper
+```{r}
+# function to get above 5% species for colour palettes
+get_bar_plot_species <- function(x) {
+  tmp_p <- lapply(split(x, f = x$Host), function(y) {
+  
+    y$Gen_frac <- y$N_genomes/sum(y$N_genomes)*100
+    
+    y$Species[y$Gen_frac >= 5]
+
+  }) %>% unlist %>% unique
+
+  gsub(pattern = "s__", replacement = "", tmp_p)
+
+}
+
+# build palette
+bp_species <- c(get_bar_plot_species(dm_95_split$BACDOR_03642),
+                get_bar_plot_species(dm_95_split$BT_4096),
+                get_bar_plot_species(dm_95_split$COLAER_00311))
+
+bp_pal <- c(get_palette("Paired", k=length(bp_species)), "grey")
+names(bp_pal) <- c(bp_species, "Other")
+
+# function to generate bar plots
+get_bar_plot <- function(x) {
+  tmp_p <- lapply(split(x, f = x$Host), function(y) {
+  
+    y$Gen_frac <- y$N_genomes/sum(y$N_genomes)*100
+    
+    tmp <- y[y$Gen_frac >= 5,c(1,11,12,19)]
+    
+    tmp <- rbind(tmp,
+                  data.frame(Reference=unique(y$Reference), Species="Other", Host=unique(y$Host), Gen_frac=100-sum(tmp$Gen_frac)))
+    
+  }) %>% do.call("rbind", .)  
+
+  tmp_p$Species <- gsub(pattern = "s__", replacement = "", tmp_p$Species)
+
+  ggbarplot(tmp_p, x = "Host", y = "Gen_frac", 
+            fill = "Species", palette = bp_pal,
+            title = unique(x$Reference)) +
+    theme(legend.position = "right")
+
+}
+
+# run barplot function
+get_bar_plot(dm_95_split$BACDOR_03642)
+get_bar_plot(dm_95_split$BT_4096)
+get_bar_plot(dm_95_split$COLAER_00311)
+```
+
+```{r}
+# add an NA column for absent mouse species
+add_rank <- dm_95_split$COLAER_00311[1,]
+add_rank$Species <- NA
+add_rank$Host <- "MOUSE"
+pwl <- get_bar_plot(rbind(dm_95_split$COLAER_00311, add_rank))
+pwl
+```
+
+```{#r}
+# save files
+
+# Figure 4b
+pdf(paste0(OUTDIR, "MGBC_suppfig4_BACDOR_03642-snl.pdf"), height = 4, width = 4)
+get_bar_plot(dm_95_split$BACDOR_03642)
+dev.off()
+
+# Figure 4a
+pdf(paste0(OUTDIR, "MGBC_suppfig4_BT_4096-snl.pdf"), height = 4, width = 4)
+get_bar_plot(dm_95_split$BT_4096)
+dev.off()
+
+# Figure 4c
+pdf(paste0(OUTDIR, "MGBC_suppfig4_COLAER_00311-snl.pdf"), height = 4, width = 4)
+pwl
+dev.off()
+```
+
+
+
+# Descriptive analyses 
+
+Q1: does the top human hit exist in the mouse:
+```{r}
+df <- lapply(dm_95_split, function(x) {
+  h_tmp <- x[x$Host == "HUMAN",]
+  m_tmp <- x[x$Host == "MOUSE",]
+  
+  H <- h_tmp[order(h_tmp$N_genomes, decreasing = TRUE)[1],]
+  S <- ifelse(H$Species %in% m_tmp$Species, "Yes", "No")
+  S2 <- ifelse(H$Species %in% shared_taxa, "Shared", "Not shared")
+  
+  data.frame(Reference=unique(x$Reference), 
+             H_top_in_M=S, 
+             Shared=S2)
+}) %>% do.call("rbind", .)
+
+table(df$H_top_in_M[df$Shared == "Shared"])
+```
+
+Where the most dominant species encoding a gene in the human host was a shared species with the mouse, the same gene product (≥95% sequence identity) was encoded by mouse-derived genomes for that species (27/27).
+
+```{r}
+df # show data
+```
+
+Q2: where the dominant human species is shared in mice, is this also the most dominant gene-encoding species in mice?
+
+```{r}
+df <- lapply(dm_95_split, function(x) {
+  h_tmp <- x[x$Host == "HUMAN",]
+  m_tmp <- x[x$Host == "MOUSE",]
+  
+  H <- h_tmp[order(h_tmp$N_genomes, decreasing = TRUE)[1],]
+  M <- m_tmp[order(m_tmp$N_genomes, decreasing = TRUE)[1],]
+
+  
+  Ht <- c(H$Species, H$Genus, H$Family, H$Order, H$Class, H$Phylum)
+  St <- ifelse(Ht %in% shared_taxa, "Shared", "Not shared")
+  Mt <- c(M$Species, M$Genus, M$Family, M$Order, M$Class, M$Phylum)
+  Tt <- c("Species", "Genus", "Family", "Order", "Class", "Phylum")
+  
+  Lt <- ifelse(Ht == Mt, "Yes", "No")
+  
+  data.frame(Feature=rep(unique(x$Reference), length(Ht)), 
+             Human=Ht, 
+             Mouse=Mt, 
+             Comparison=Lt, 
+             Rank=Tt,
+             Shared_taxon=St)
+}) %>% do.call("rbind", .)
+
+
+df_s <- df[df$Rank == "Species" & df$Shared_taxon == "Shared",]
+table(df_s$Comparison)
+```
+
+```{r}
+df_s
+```
+
+However, in a third of the cases of shared species, the most dominant species that encoded these genes in the mouse host differed from the most dominant species in humans (9/27; 33%).
+

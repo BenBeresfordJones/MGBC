@@ -1,0 +1,290 @@
+---
+title: "MGBC_Fig4"
+author: "Benjamin Beresford-Jones"
+date: "29/05/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Required datasets:
+- all_rep_tax.tsv
+- HM_4100_tax_dm.RData ()
+- all_annotations.jaccard.binary.FALSE.dist_mat.RData ()
+- mouse.closest_functional_species.tsv
+- human.closest_functional_species.tsv
+- mouse_taxonomy_summary.tsv
+- human_taxonomy_summary.tsv
+
+## load libraries
+```{r}
+library(magrittr)
+library(ggplot2)
+library(ggpubr)
+library(grid)
+library(gridExtra)
+library(pheatmap)
+library(reshape2)
+library(vegan)
+```
+
+## set defaults
+```{r}
+set.seed(0)
+INDIR="Fig4_data/" # unzip
+# OUTDIR="CHANGEME" # change to save figures to specified directory
+
+bS_cn <- c("Sample", "Species", "Reads_assigned", "Read_frac")
+tax_cn <- c("Domain", "Phylum", "Class", "Order", "Family", "Genus", "Species")
+
+f1_cn <- c("MGBC_id", "Orig_name", "Study", "Completeness", "Contamination", "Size", "N_contigs", "N50", "MCL", "QS", "CMseq", "Qual_level", "Lowest_tax_gtdb", "Lowest_tax_rank", "GTDB_taxonomy")
+
+dm_cn <- c("Reference", "Genome", "Pangenome_frac", "N_genomes", "Total_genomes", "Mean_seq_id", "Max_seq_id", "Min_seq_id", "Mean_bit_score", "Clus_90_rep", "Species", "Host", "Taxonomy")
+
+tax_order <- c("Domain", "Phylum", "Class", "Order", "Family", "Genus", "Species")
+```
+
+## build colour palettes
+```{r}
+hm_phylabs=c("Actinobacteriota","Bacteroidota","Campylobacterota","Cyanobacteria","Deferribacterota","Desulfobacterota","Elusimicrobiota","Firmicutes","Firmicutes_A","Firmicutes_B","Firmicutes_C","Proteobacteria","Spirochaetota","Thermotogota","Verrucomicrobiota","Verrucomicrobiota_A","Fibrobacterota","Firmicutes_G","Fusobacteriota","Synergistota")
+
+hm_phycol=c("#377eb8","#8CB302","#008C74","#d95f02","#B3B3B3","#FFED6F","#FDCDAC","#ffd92f","#e22426","#B3B3B3","#BF5693","#984ea3","#35478C","#B3B3B3","#FF73C5","#B3B3B3","#B3B3B3","#B3B3B3","#7FC97F","#FF974F")
+
+names(hm_phycol) <- hm_phylabs
+
+tax_level_col <- get_palette("Paired", k = 3)
+tax_level_col[3] <- "#45BF55"
+names(tax_level_col) <- c("Species", "Genus", "Family")
+
+rank_col=c("#f781bf", "#e41a1c","#377eb8","#4daf4a","#984ea3","#ff7f00","#ffff33")
+names(rank_col) <- c("Species","Genus","Family","Order","Class","Phylum","Domain")
+```
+
+# load datasets
+```{r}
+# all rep taxonomy
+atx <- read.delim(file = paste0(INDIR, "all_rep_tax.tsv"), header = FALSE, col.names = c("Genome_id", "Taxon", "Rank", "Taxonomy"))
+atx$Phylum <- lapply(strsplit(atx$Taxonomy, split = ";.__"), function(x) {x[2]}) %>% unlist
+# taxonomy distances
+load(paste0(INDIR,"HM_4100_tax_dm.RData")) # tree_dm
+# functional distances
+load(paste0(INDIR, "all_annotations.jaccard.binary.FALSE.dist_mat.RData")) # dist_mat
+# taxonomically/functionally closest species
+fdf_m <- read.delim(file = paste0(INDIR, "mouse.closest_functional_species.tsv"), header=F, 
+                    col.names = c("DB", "Mouse", "Human", "Distance", "M_Taxonomy", "H_Taxonomy"))
+fdf_h <- read.delim(file = paste0(INDIR, "human.closest_functional_species.tsv"), header=F,
+                    col.names = c("DB", "Human", "Mouse", "Distance", "H_Taxonomy", "M_Taxonomy"))
+tdf_m <- read.delim(file = paste0(INDIR, "mouse_taxonomy_summary.tsv"), header=F, 
+                    col.names = c("DB", "Mouse", "Human", "Distance", "M_Taxonomy", "H_Taxonomy"))
+tdf_h <- read.delim(file = paste0(INDIR, "human_taxonomy_summary.tsv"), header=F,
+                    col.names = c("DB", "Human", "Mouse", "Distance", "H_Taxonomy", "M_Taxonomy"))
+```
+
+# Figure 4a
+```{r}
+## taxonomy
+# ordinate distance matrices
+t_d <- cmdscale(tree_dm, k = 2)
+t_df <- as.data.frame(t_d)
+colnames(t_df) <- c("x", "y")
+t_df$Genome_id <- row.names(t_df)
+t_df <- merge(x = t_df, y = atx, by = "Genome_id", all.x = TRUE)
+```
+
+```{r}
+## distance
+# ordinate distance matrices
+f_d <- cmdscale(dist_mat, k = 2)
+f_df <- as.data.frame(f_d)
+colnames(f_df) <- c("x", "y")
+f_df$Genome_id <- row.names(f_df)
+f_df <- merge(x = f_df, y = atx, by = "Genome_id", all.x = TRUE)
+all_annotations_f_df <- f_df
+```
+
+```{r}
+# mantel test to compare broad scale taxonomic and functional distributions
+# this takes a bit of time, so the results are shown below
+t_d_m <- as.matrix(tree_dm)
+t_d_m <- t_d_m[order(colnames(t_d_m)),order(colnames(t_d_m))]
+
+f_d_m <- as.matrix(dist_mat)
+f_d_m <- f_d_m[order(colnames(f_d_m)),order(colnames(f_d_m))]
+
+mantel(t_d_m, f_d_m)
+```
+
+###
+
+Mantel statistic based on Pearson's product-moment correlation 
+
+Call:
+mantel(xdis = t_d_m, ydis = f_d_m) 
+
+Mantel statistic r: 0.7224 
+      Significance: 0.001 
+
+Upper quantiles of permutations (null model):
+    90%     95%   97.5%     99% 
+0.00873 0.01065 0.01267 0.01565 
+Permutation: free
+Number of permutations: 999
+
+###
+
+
+```{r}
+p_tax <- ggscatter(data = t_df, x = "x", y = "y", 
+                   color = "Phylum", 
+                   size = 1.5, 
+                   palette = hm_phycol, 
+                   title = "phylogenetic distances"
+) +
+  theme(axis.line = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.grid.major.y = element_blank(),
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        plot.title = element_text(hjust = 0.5),
+        axis.text.x = element_blank(),
+        axis.text.y = element_blank(),
+        axis.ticks = element_blank(),
+        panel.border = element_rect(colour = "black", fill = NA),
+        legend.position = "none"
+  ) +
+  theme(aspect.ratio = 1) +
+  annotate("text", x = -1.2, y = -2, label = "Mantel test\nr: 0.7416\np-value: 0.001", size = 3.5, hjust = "outward") # data from Mantel test
+```
+
+
+```{r}
+p_jac <- ggscatter(data = all_annotations_f_df, x = "x", y = "y", color = "Phylum", size = 1.5, palette = hm_phycol,
+                   title = "functional distances") +
+   theme(axis.line = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.grid.major.y = element_blank(),
+    axis.title.x = element_blank(),
+    axis.title.y = element_blank(),
+    plot.title = element_text(hjust = 0.5),
+    axis.text.x = element_blank(),
+    axis.text.y = element_blank(),
+    axis.ticks = element_blank(),
+    panel.border = element_rect(colour = "black", fill = NA),
+    legend.position = "none"
+  ) +
+  theme(aspect.ratio = 1) +
+  scale_color_manual(values = hm_phycol, breaks=names(hm_phycol)) 
+```
+
+```{r}
+ggarrange(p_jac, p_tax)
+```
+
+```{#r}
+# save file
+pdf(paste0(OUTDIR, "MGBC_fig3_global_tax_vs_func_pcoa_comaprison.pdf"), width = 8, height = 4)
+ggarrange(p_jac, p_tax)
+dev.off()
+```
+
+
+
+
+# Figure 4b
+```{r}
+tdf_m$DB <- "taxonomy"
+tdf_h$DB <- "taxonomy"
+```
+
+```{r}
+df_h <- rbind(tdf_h, fdf_h)
+tmp <- strsplit(df_h$H_Taxonomy, split = ";") %>% do.call("rbind", .) == strsplit(df_h$M_Taxonomy, split = ";") %>% do.call("rbind", .) & 
+        strsplit(df_h$H_Taxonomy, split = ";") %>% do.call("rbind", .) != strsplit(rep("d__;p__;c__;o__;f__;g__;s__", length(df_h$H_Taxonomy)), split = ";") %>% do.call("rbind", .) 
+df_h$HM_tax_level_sharing <- sapply(lapply(apply(tmp, 1, which), function(x) {
+  rev(x)[1]
+}) %>% unlist, function(y) {tax_order[y]})
+
+# at each taxonomic level of sharing between H and M closest taxonomic neighbours, what is the rate the closest tax == closest function
+
+# get matrix with shared level
+df_h_dcast <- dcast(df_h[,c(1,2,7)], Human ~ DB)
+
+df_h_2 <- rbind(tdf_h, fdf_h)
+df_h_2 <- dcast(df_h_2[,c(1,2,3)], Human ~ DB)
+
+df_h_c <- apply(df_h_2[,-1], 2, function(x) {
+  x == df_h_2$taxonomy
+})
+
+# all
+print("All annotations")
+i=1
+df <- sapply(tax_order, function(tax_rank) {
+  DB <- colnames(df_h_c)[i]
+  tmp <- df_h_c[,i][df_h_dcast[,16] == tax_rank] # col16 = taxonomy
+  SUM=sum(tmp)
+  COUNT=length(tmp)
+  PERC=round(SUM/COUNT*100, digits=2)
+  
+  data.frame(DB, SUM, COUNT, PERC)
+})
+t(df)
+```
+i.e. at a given taxonomic rank, this is the number/percentage of species for which the closest taxonomic species is the same as the 
+
+```{r}
+f_pr <- lapply(tax_order, function(x) {
+  tmp <- df_h_c[,1][df_h_dcast[,16] == x]
+  data.frame(Tax=x,
+             Total=length(tmp),
+             Sum=sum(tmp),
+             Percentage=round(sum(tmp)/length(tmp)*100, digits = 1))
+}) %>% do.call("rbind", .) #%>% melt(id.vars=c("Tax", "Percentage"))
+
+f_pr$Tax <- factor(f_pr$Tax, levels = tax_order)
+
+p <- ggplot(f_pr, aes(x=Tax)) +
+  geom_bar(stat="identity", aes(y=Total), fill = "lightgrey") +
+  geom_bar(stat="identity", aes(y=Sum, fill=Tax)) +
+  scale_fill_manual(values=rank_col) +
+  geom_text(aes(y=Sum, label=Percentage), vjust=-0.5, color="black", size=4) +
+  theme_pubr() +
+  scale_x_discrete(limits=rev(tax_order))
+
+ggpar(p, xlab = "Shared taxonomic rank", ylab = "Number of species", legend = "none")
+```
+
+```{#r}
+# save file
+pdf(paste0(OUTDIR, "MGBC_fig3c_tax_rank_frac_bar.pdf"), width = 5, height = 4)
+ggpar(p, xlab = "Shared taxonomic rank", ylab = "Number of species", legend = "none")
+dev.off()
+```
+
+# Figure 4c
+```{r}
+tmp_df <- dcast(df_h[df_h$DB %in% c("taxonomy", "all_annotations"),c(1,2,4)], Human ~ DB)
+
+tmp_df <- merge(x = tmp_df, y = df_h[df_h$DB == "taxonomy",], all.x = TRUE, by = "Human")
+
+tmp_df$HM_tax_level_sharing <- factor(tmp_df$HM_tax_level_sharing, levels = tax_order)
+
+tmp_df$Phylum <- lapply(strsplit(tmp_df$H_Taxonomy, split = ";.__"), function(x) {x[2]}) %>% unlist
+
+p <- ggscatter(tmp_df, x = "taxonomy", y = "all_annotations", 
+          color = "HM_tax_level_sharing", fill = "HM_tax_level_sharing",
+          palette = rank_col, 
+          xlab = "Taxonomic distance",
+          ylab = "Functional distance")
+ggpar(p, legend.title = "Shared taxonomic rank", legend = "right")
+```
+
+```{#r}
+# save file
+pdf(paste0(OUTDIR, "MGBC_fig3_tax_dist_vs_func_dist.pdf"), width = 6, height = 4)
+ggpar(p, legend.title = "Shared taxonomic rank", legend = "right")
+dev.off()
+```
+

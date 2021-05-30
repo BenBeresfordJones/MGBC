@@ -1,0 +1,347 @@
+---
+title: "MGBC_SuppFig1"
+author: "Benjamin Beresford-Jones"
+date: "30/05/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Required datasets:
+- FINAL_bin_qc.tsv
+- FINAL_bin_taxonomy.tsv
+- s4_summary.tsv
+
+
+## load libraries
+```{r}
+library(magrittr)
+library(ggplot2)
+library(ggpubr)
+library(ggrepel)
+library(reshape)
+library(UpSetR)
+library(tidyverse)
+library(ggpol)
+```
+
+## set defaults
+```{r}
+INDIR="SuppFig1_data/" # unzip
+# OUTDIR="CHANGEME" # change to save figures to specified directory
+
+bS_cn <- c("Sample", "Species", "Reads_assigned", "Read_frac")
+tax_cn <- c("Domain", "Phylum", "Class", "Order", "Family", "Genus", "Species")
+
+f1_cn <- c("MGBC_id", "Orig_name", "Study", "Completeness", "Contamination", "Size", "N_contigs", "N50", "MCL", "QS", "CMseq", "Qual_level", "Lowest_tax_gtdb", "Lowest_tax_rank", "GTDB_taxonomy")
+
+tax_order <- c("Domain", "Phylum", "Class", "Order", "Family", "Genus", "Species")
+```
+
+## build colour palettes
+```{r}
+phycol=c("#377eb8","#8CB302","#008C74","#d95f02","#FF974F","#FFED6F","#FDCDAC","#ffd92f","#e22426","#B3B3B3","#FBB4AE","#984ea3","#35478C","#7FC97F","#FF73C5","#BF5693")
+phylabs=c("Actinobacteriota","Bacteroidota","Campylobacterota","Cyanobacteria","Deferribacterota","Desulfobacterota","Elusimicrobiota","Firmicutes","Firmicutes_A","Firmicutes_B","Firmicutes_C","Proteobacteria","Spirochaetota","Thermotogota","Verrucomicrobiota","Verrucomicrobiota_A")
+names(phycol) <- phylabs
+```
+
+
+## Load datasets
+```{r}
+# bin qc data
+bin_qc <- read.delim(file = paste0(INDIR, "FINAL_bin_qc.tsv"), header = FALSE)
+
+# bin_taxonomy
+bin_taxonomy <- read.delim(file = paste0(INDIR, "FINAL_bin_taxonomy.tsv"), header = FALSE)
+colnames(bin_taxonomy) <- c("Sample_id", "Binner", "Bin", "Taxonomy")
+
+# core genome analysis data
+cg <- read.delim(file = paste0(INDIR, "s4_summary.tsv"), header = FALSE, col.names = c("Species", "Binner", "Core_genome"))
+```
+
+
+## setup
+```{r}
+colnames(bin_qc) <- c("Sample_id", "Binner", "Bin", "Completeness", "Contamination", "GC", "Lineage", "N50", "Size", "Composite_binners")
+bin_qc$Genome_id <- paste(bin_qc$Sample_id, bin_qc$Binner, bin_qc$Bin, sep = "_")
+bin_qc$QS <- bin_qc$Completeness - (5*bin_qc$Contamination) # Calculate Quality Score 
+
+# assign QC status to each genome
+bin_qc$QC_level <- "FAIL"
+bin_qc$QC_level[bin_qc$Completeness >= 50 & bin_qc$Contamination <= 5 & bin_qc$QS >= 50] <- "MQ" # medium-plus quality
+bin_qc$QC_level[bin_qc$Completeness >= 90 & bin_qc$Contamination <= 5 & bin_qc$N50 >= 10000 & bin_qc$Size <= 8000000] <- "HQ"
+```
+
+## Analyses
+
+# Number of bins - total, MQ and HQ
+```{r}
+# all genomes
+all_qc <- table(bin_qc$Binner)
+# MQ+ genomes
+MQ_HQ_qc <- table(bin_qc$Binner[bin_qc$QC_level %in% c("MQ", "HQ")])
+# HQ genomes
+HQ_qc <- table(bin_qc$Binner[bin_qc$QC_level == "HQ"])
+
+MQ_qc <- MQ_HQ_qc - HQ_qc
+LQ_qc <- all_qc - MQ_HQ_qc
+
+cat("Number of bins:\n")
+cat("Of any quality:")
+all_qc
+cat("\nOf medium-plus quality:")
+MQ_HQ_qc
+cat("\nOf high quality:")
+HQ_qc
+```
+
+
+```{r}
+# Percentage of high quality bins of all bins
+cat("Percentage of high quality bins of all bins:")
+HQ_qc / all_qc * 100
+# Percentage of high quality bins of all MQ bins
+cat("\nPercentage of high quality bins of all medium-plus quality bins:")
+HQ_qc / MQ_HQ_qc * 100
+```
+
+```{r}
+mq_plus_qc <- bin_qc[bin_qc$QC_level %in% c("MQ", "HQ"),]
+hq_plus_qc <- bin_qc[bin_qc$QC_level == "HQ",]
+```
+
+
+# Supplementary Figure 1a
+```{r}
+mq_plus_qc$Group <- "Medium quality"
+hq_plus_qc$Group <- "High quality"
+figure_qc <- hq_plus_qc
+
+figure_qc$Purity <- 100-figure_qc$Contamination
+
+colnames(figure_qc)[c(15,12)] <- c("Purity", "Quality Score")
+
+figure_qc_m <- melt(figure_qc[,c("Binner", "Completeness", "QC_level", "Purity", "Quality Score")], id.vars = c("Binner", "QC_level"))
+
+ggboxplot(figure_qc_m[figure_qc_m$QC_level == "HQ",], x = "Binner", y = "value", 
+          fill = "variable", 
+          palette = "Dark2",
+          xlab = FALSE, ylab = "Value",
+          outlier.shape = NA) +
+  theme(legend.position = "right", legend.title = element_blank())
+```
+
+```{#r}
+# save file
+pdf(paste0(OUTDIR, "MGBC_S1-binner_quality_indices_comparison.pdf"), height = 3, width = 7)
+ggboxplot(figure_qc_m[figure_qc_m$QC_level == "HQ",], x = "Binner", y = "value", 
+          fill = "variable",
+          palette = "Dark2",
+          xlab = FALSE, ylab = "Value",
+          outlier.shape = NA) +
+  theme(legend.position = "right", legend.title = element_blank())
+dev.off()
+```
+
+### Descriptive statistics
+
+```{r}
+hq_only <- figure_qc_m[figure_qc_m$QC_level == "HQ",]
+
+# completeness
+lapply(split(hq_only, hq_only$Binner), function(x) {
+  c(summary(x$value[x$variable == "Completeness"]),
+    Stdev.=sd(x$value[x$variable == "Completeness"]))
+})
+```
+
+```{r}
+# Purity
+lapply(split(hq_only, hq_only$Binner), function(x) {
+  c(100-summary(x$value[x$variable == "Purity"]),
+    Stdev.=sd(x$value[x$variable == "Purity"]))
+})
+```
+
+```{r}
+# QS
+lapply(split(hq_only, hq_only$Binner), function(x) {
+  c(summary(x$value[x$variable == "Quality Score"]),
+    Stdev.=sd(x$value[x$variable == "Quality Score"]))
+})
+```
+
+
+# Supplementary Figure 1b
+```{r}
+bin_taxonomy$Genome_id <- paste(bin_taxonomy$Sample_id, bin_taxonomy$Binner, bin_taxonomy$Bin, sep = "_")
+
+# merge taxonomic and qc profiles for bins
+btm <- merge(x = bin_taxonomy, y = bin_qc, by = "Genome_id", all = FALSE)
+btm <- btm[,-c(6:8)]
+colnames(btm) <- gsub(pattern = "\\.x", replacement = "", colnames(btm))
+
+# stratify taxonomy
+tax_bd <- strsplit(btm$Taxonomy, split = ";") %>% do.call("rbind", .) %>% data.frame
+colnames(tax_bd) <- c("Domain", "Phylum", "Class", "Order", "Family", "Genus", "Species")
+btm <- cbind(btm, tax_bd)
+btm_HQ <- btm[btm$QC_level == "HQ",]
+
+# get only known species
+btm_species_HQ <- btm_HQ[grep(pattern = "s__.", btm_HQ$Species),]
+
+# generate binner statistics for each binner
+btm_s_HQ <- lapply(split(btm_species_HQ, f = btm_species_HQ$Species), function(x) {
+  df <- lapply(split(x, x$Binner), function(y) {
+    data.frame(Species=unique(y$Species),
+               Binner=unique(y$Binner),
+               Med=median(y$QS),
+               Mean=mean(y$QS),
+               Count=nrow(y))
+  }) %>% do.call("rbind", .)
+}) %>% do.call("rbind", .)
+```
+
+```{r}
+min_bin <- lapply(split(btm_s_HQ, f = btm_s_HQ$Species), function(x) {
+  x$Binner[which.min(x$Med)]
+}) %>% do.call("rbind", .)
+
+max_bin <- lapply(split(btm_s_HQ, f = btm_s_HQ$Species), function(x) {
+  x$Binner[which.max(x$Med)]
+}) %>% do.call("rbind", .)
+
+bin_counts_HQ <- rbind(data.frame(BINNER=names(table(min_bin)), COUNT=as.numeric(table(min_bin)), MD="Ranked lowest binner"),
+      data.frame(BINNER=names(table(max_bin)), COUNT=as.numeric(table(max_bin)), MD="Ranked highest binner"))
+```
+
+```{r}
+bin_counts_HQ$COUNT[bin_counts_HQ$MD == "Ranked lowest binner"] <- bin_counts_HQ$COUNT[bin_counts_HQ$MD == "Ranked lowest binner"]*-1
+
+bin_counts_HQ$MD <- factor(bin_counts_HQ$MD, levels = c("Ranked lowest binner", "Ranked highest binner"))
+
+p <- ggbarplot(bin_counts_HQ, x = "BINNER", y = "COUNT", 
+          fill = "MD", palette = "npg", ylab = FALSE) +
+  facet_share(~MD, dir = "h", scales = "free", reverse_num = TRUE) + # note: scales = "free"
+  coord_flip()
+ggpar(p, ylab = "Number of species", legend = "none")
+```
+
+```{#r}
+# save file
+pdf(paste0(OUTDIR, "MGBC_S1b-best_worst_binner_species.pdf"), height = 2, width = 6)
+ggpar(p, ylab = "Number of species", legend = "none")
+dev.off()
+```
+
+
+# Supplementary Figure 1c
+
+```{r}
+list <- c()
+for (i in 1:length(unique(btm_s_HQ$Binner))) {
+  BINNER <- unique(btm_s_HQ$Binner)[i]
+  list[[BINNER]] <- c(unique(btm_s_HQ$Species[btm_s_HQ$Binner == BINNER]))
+}
+
+p <- upset(fromList(list), order.by = "freq", mainbar.y.label = "Species Intersections", 
+           sets.x.label = "Number of species", 
+           sets.bar.color = get_palette(palette = "jco", 4)[c(4,3,1,2)])
+p
+```
+
+```{#r}
+# save file
+pdf(paste0(OUTDIR, "MGBC_S1c-binner_upset.pdf"), height = 4, width = 6)
+p
+dev.off()
+```
+
+
+# Supplementary Figure 1d
+
+```{r}
+btm_species_HQ$Species <- gsub(pattern = "s__", replacement = "", btm_species_HQ$Species)
+
+stest <- table(btm_species_HQ$Species) %>% sort(decreasing = TRUE) %>% head(n=12) %>% names
+
+p <- ggboxplot(btm_species_HQ, x = "Species", y = "QS", 
+               color = "black", fill = "Binner", palette = "jco",
+               ylab = FALSE,
+               select = stest, order = rev(stest), 
+               outlier.shape = NA)
+
+ggpar(p, rotate = TRUE, ylab = "Quality Score", legend = "none")
+```
+
+```{#r}
+# save file
+pdf(paste0(OUTDIR, "MGBC_S1d-species_quality_score.pdf"), height = 8, width = 6)
+ggpar(p, rotate = TRUE, ylab = "Quality Score", legend = "none")
+dev.off()
+```
+
+
+# Supplementary Figure 1e
+
+```{r}
+# isolate benchmark 
+LM_icg=1403 # n=58
+BG_icg=1210 # n=62
+AM_icg=1791 # n=136
+LJ_icg=1167 # 54
+
+cg$Core_genome_perc <- 0
+cg$Core_genome_perc[cg$Species == "LM"] <- cg$Core_genome[cg$Species == "LM"]/LM_icg*100
+cg$Core_genome_perc[cg$Species == "BG"] <- cg$Core_genome[cg$Species == "BG"]/BG_icg*100
+cg$Core_genome_perc[cg$Species == "LJ"] <- cg$Core_genome[cg$Species == "LJ"]/LJ_icg*100
+cg$Core_genome_perc[cg$Species == "AM"] <- cg$Core_genome[cg$Species == "AM"]/AM_icg*100
+
+cg$Species <- gsub(pattern = "LM", replacement = "Ligilactobacillus murinus", cg$Species) %>% 
+  gsub(pattern = "BG", replacement = "Bifidobacterium globosum") %>%
+  gsub(pattern = "LJ", replacement = "Lactobacillus johnsonii") %>%
+  gsub(pattern = "AM", replacement = "Akkermansia muciniphila") 
+```
+
+```{r}
+# absolute core genome size
+ggbarplot(cg, x = "Species", y = "Core_genome", 
+          position = position_dodge(0.8), add = "mean_ci",
+               color = "black", fill = "Binner", palette = "jco", xlab = FALSE, ylab = "Core genome size")
+```
+
+```{r}
+# percentage core genome size
+p <- ggbarplot(cg, x = "Species", y = "Core_genome_perc", 
+          position = position_dodge(0.8), add = "mean_ci",
+               color = "black", fill = "Binner", palette = "jco", 
+          xlab = FALSE, ylab = "% Isolate core genome") + 
+  theme(legend.position = "right")
+
+ggpar(p, x.text.angle = 60)
+```
+
+```{#r}
+pdf(paste0(OUTDIR, "MGBC_S1e-species_core_genome_perc.pdf"), height = 5, width = 6)
+ggpar(p, x.text.angle = 60)
+dev.off()
+```
+
+
+## Descriptive statistics
+### MetaBAT2 data
+```{r}
+lapply(split(cg, cg$Species), function(x) {
+  summary(x$Core_genome_perc[x$Binner == "METABAT2"])
+})
+```
+
+### MetaWRAP data
+```{r}
+lapply(split(cg, cg$Species), function(x) {
+  summary(x$Core_genome_perc[x$Binner == "METAWRAP"])
+})
+```
+

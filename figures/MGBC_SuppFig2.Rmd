@@ -1,0 +1,586 @@
+---
+title: "MGBC_SuppFig2"
+author: "Benjamin Beresford-Jones"
+date: "30/05/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Required datasets:
+- bracken.S.summary.tsv
+- MGBC_1094_tax_paths.tsv
+- MCC_276_rep_tax.tsv
+- full_postqc_md_2446.tsv
+
+
+## load libraries
+```{r}
+library(magrittr)
+library(ggplot2)
+library(ggpubr)
+library(grid)
+library(gridExtra)
+library(reshape2)
+library(zCompositions)
+library(vegan)
+library(pheatmap)
+library(Maaslin2)
+```
+
+## set defaults
+```{r}
+INDIR="SuppFig2_data/" # unzip
+OUTDIR="SuppFig2_out" # change to save figures to specified directory - required for Maaslin2
+
+bS_cn <- c("Sample", "Species", "Reads_assigned", "Read_frac")
+tax_cn <- c("Domain", "Phylum", "Class", "Order", "Family", "Genus", "Species")
+
+f1_cn <- c("MGBC_id", "Orig_name", "Study", "Completeness", "Contamination", "Size", "N_contigs", "N50", "MCL", "QS", "CMseq", "Qual_level", "Lowest_tax_gtdb", "Lowest_tax_rank", "GTDB_taxonomy")
+```
+
+## build colour palettes
+```{r}
+phycol=c("#377eb8","#8CB302","#008C74","#d95f02","#FF974F","#FFED6F","#FDCDAC","#ffd92f","#e22426","#B3B3B3","#FBB4AE","#984ea3","#35478C","#7FC97F","#FF73C5","#BF5693")
+phylabs=c("Actinobacteriota","Bacteroidota","Campylobacterota","Cyanobacteria","Deferribacterota","Desulfobacterota","Elusimicrobiota","Firmicutes","Firmicutes_A","Firmicutes_B","Firmicutes_C","Proteobacteria","Spirochaetota","Thermotogota","Verrucomicrobiota","Verrucomicrobiota_A")
+names(phycol) <- phylabs
+```
+
+## Load datasets
+```{r}
+# Bracken output data for QC'ed samples
+bS <- read.delim(file = paste0(INDIR, "bracken.S.summary.tsv"), header = FALSE, col.names = bS_cn)
+
+# Taxonomy for species-level data
+ntax <- read.delim(file = paste0(INDIR, "MGBC_1094_tax_paths.tsv"), header = FALSE, col.names = tax_cn)
+
+# MCC taxonomies
+MCC_tax <- read.delim(file = paste0(INDIR, "MCC_276_rep_tax.tsv"), header = FALSE, col.names = c("MGBC", tax_cn))
+
+# Metagenome metadata
+md <- read.delim(file = paste0(INDIR, "full_postqc_md_2446.tsv"), header = TRUE)
+colnames(md)[2] <- "Sample"
+```
+
+```{r}
+# convert read proportion to percentage
+bS$Read_frac <- bS$Read_frac*100
+```
+
+```{r}
+ntax <- apply(ntax, 2, function(x) {gsub(x=x, pattern = ".__", replacement = "")} ) %>% as.data.frame
+MCC_tax <- apply(MCC_tax, 2, function(x) {gsub(x=x, pattern = ".__", replacement = "")} ) %>% as.data.frame
+```
+
+```{r}
+unique(md$Institute) %>% sort %>% length # 63
+unique(md$Institute_country) %>% sort %>% length # 17
+```
+
+```{r}
+# generate summary data for each species
+species_summary <- lapply(split(bS, f = bS$Species), function(x) {
+  SPECIES = unique(x$Species)
+  MEAN = mean(x$Read_frac)
+  PREV = length(which(x$Read_frac >= 0.01)) # use >0.01% of reads to define prevalence # checkes using 0.1 -> max prev ~70%
+  PREV_FRAC = PREV / length(unique(bS$Sample)) * 100
+  MEAN_OF_PREV = mean(x$Read_frac[which(x$Read_frac >= 0.1)])
+  MAX = max(x$Read_frac)
+  
+  data.frame(Species=SPECIES,
+             All_mean=MEAN,
+             Mean_of_frac=MEAN_OF_PREV,
+             Prevalence_count=PREV,
+             Prevalence_frac=PREV_FRAC,
+             Max=MAX)
+}) %>% do.call("rbind", .)
+
+species_summary <- merge(x = species_summary, y = ntax, by = "Species")
+```
+
+
+# Supplementary Figure 2a
+
+```{r}
+# top 20 most prevalent species
+prev_20 <- head(species_summary[order(species_summary$Prevalence_count, decreasing = TRUE),], 20)
+prev_20$MCC <- "MAG only"
+prev_20$MCC[prev_20$Species %in% MCC_tax$Species] <- "Isolated in MCC"
+prev_20$MCC <- factor(prev_20$MCC, levels = c("MAG only", "Isolated in MCC"))
+prev_20$'Species cultured in the MCC?'<- ifelse(prev_20$MCC == "MAG only", "No", "Yes")
+
+prev_20_data <- bS[which(bS$Species %in% prev_20$Species),]
+prev_20_data$MCC <- "MAG only"
+prev_20_data$MCC[prev_20_data$Species %in% MCC_tax$Species] <- "Isolated in MCC"
+prev_20_data$MCC <- factor(prev_20_data$MCC, levels = c("MAG only", "Isolated in MCC"))
+prev_20_data <- merge(x = prev_20_data, y = ntax, by = "Species")
+
+bold_labels <- rep("plain", 20)
+bold_labels[which(prev_20$Species %in% MCC_tax$Species)] <- "bold"
+
+
+p1 <- ggline(prev_20_data, x = "Species", y = "Read_frac",
+            plot_type = "p", 
+            order = rev(prev_20$Species), 
+            shape = "MCC",
+            #add = "boxplot", 
+            color = "Phylum", fill = "Phylum", palette = phycol)
+p1 <- ggpar(p1, rotate = TRUE, ylab = "% Abundance", legend = "none") +
+  theme(
+    plot.margin = unit(c(1,3,1,3), "mm"),
+    axis.title.y = element_blank(),
+    axis.text.y = element_text(face = rev(bold_labels))
+  )
+
+p2 <- ggline(prev_20, x = "Species", y = "Prevalence_frac",
+             plot_type = "p",
+             order = rev(prev_20$Species),
+            color = "Phylum", fill = "Phylum", shape = "Species cultured in the MCC?",
+            palette = phycol)
+p2 <- ggpar(p2, rotate = TRUE, ylab = "% Prevalence", legend = "none") +
+  theme(
+        axis.title.y = element_blank(), 
+        axis.text.y = element_blank(), 
+        axis.ticks.y = element_blank(),
+        axis.line.y = element_blank(),
+        plot.margin = unit(c(1,3,1,3), "mm"),
+        legend.position = "right"
+  ) +
+  labs(shape="Species cultured \nin the MCC?",col="Taxonomic class") 
+
+grid.arrange(p1,p2,ncol=2,widths=c(38/70,22/60))
+```
+
+```{#r}
+# save file
+pdf(paste0(OUTDIR, "MGBC_SF2a-top20_prevalence_26640.pdf"), height = 5, width = 8)
+grid.arrange(p1,p2,ncol=2,widths=c(38/70,22/60))
+dev.off()
+```
+
+
+# Supplementary Figure 2b
+
+```{r}
+# lab vs wild md
+md$Lab_v_Wild <- "Laboratory"
+md$Lab_v_Wild[md$Treatment == "Wild"] <- "Wild"
+
+# convert months to days
+md$Age[md$Age == "18 months" & !is.na(md$Age)] <- paste(1.5*52, "weeks")
+# numeric age values for filtering
+md$Age_numeric <- lapply(strsplit(md$Age, split = " "), function(x) {x[1]}) %>% unlist %>% as.numeric
+
+# higher-level definitions for GI tissue classification
+md$GI_tissue <- gsub(pattern = "Ileum", replacement = "Small intestine", md$Compartment) %>% 
+  gsub(pattern = "Intestine", replacement = "Small intestine") %>% 
+  gsub(pattern = "Ileo-caecum", replacement = "Caecum") %>% 
+  gsub(pattern = "Distal colon", replacement = "Colon") %>% 
+  gsub(pattern = "Proximal colon", replacement = "Colon")
+```
+
+
+# Quantify impact of metadata factors on microbioal variation using adonis
+```{r}
+run.adonis <- function(md_variable) {
+  col_i <- which(colnames(md) == md_variable)
+  md_tmp <- md[which(complete.cases(md[,col_i])),]  
+  d <- data[which(data$Sample %in% md_tmp$Sample),]
+  otu <- dcast(d, Species ~ Sample)
+  otu[is.na(otu)] <- 0
+  rownames(otu) <- otu$Species
+  otu_m <- as.matrix(otu[,c(2:ncol(otu))])
+  
+  t_d.czm <- cmultRepl(X = t(otu_m), label = 0, method = "CZM")
+  t_d.clr <- t(apply(t_d.czm, 1, function(x){log(x) - mean(log(x))}))
+
+  aitch <- vegdist(x = t_d.clr, method = "euc", binary = FALSE)
+
+  colnames(md_tmp)[col_i] <- "ADONIS"
+  
+  # run adonis
+  aitch.m <- as.matrix(aitch)
+  a.out <- adonis(aitch.m ~ ADONIS, data = md_tmp, permutations = 999)#$aov.tab[1,5] # save whole table > P-values
+  print(a.out)
+}
+```
+
+```{r}
+col_i_adonis <- colnames(md)[c(1,10,11,13:18,20:31,33:35)]
+col_i_adonis
+```
+
+```{#r}
+# takes time to run, output data provided below and in Supplementary Table 7
+list <- c()
+for (i in c(1:length(col_i_adonis))) {
+  MD_VAR=col_i_adonis[i]
+  print(MD_VAR)
+  list[i] <- run.adonis(MD_VAR)
+}
+
+run.adonis("Lab_v_Wild")
+```
+
+
+```{r}
+adonis_out <- rbind(c("Study", 0.40067),
+                    #c("Library_Layout", 0.00548),
+                    #c("Library_Selection", 0.04206),
+                    #c("Genetic_background", 0.05153),
+                    c("Mouse strain", 0.10806), # Strain
+                    c("Genotype", 0.05141),
+                    c("GI region", 0.02825), # Compartment
+                    c("Diet", 0.03),
+                    c("Dietary supplement", 0.1241),
+                    c("Age", 0.24407), #Age_numeric
+                    c("Sex", 0.02201),
+                    c("Treatment", 0.19728),
+                    #c("Sample_type", 0.01409),
+                    c("exGF", 0.00636),
+                    c("Vendor", 0.33217), # Vendo_name_full
+                    #c("Vendor_name", 0.2957),
+                    #c("Vendor_Location_Geographical_region", 0.29089),
+                    c("Vendor country", 0.18555),
+                    c("Institute", 0.38002),
+                    c("Institute country", 0.21124),
+                    #c("Institute_Location_Geographical_region", 0.33555),
+                    c("Institute continent", 0.07697),
+                    #c("GI region", 0.02106), # GI_tissue
+                    c("Lab vs Wild", 0.00353)) 
+adonis_out <- data.frame(adonis_out)
+colnames(adonis_out) <- c("Variable", "Rsquared")
+adonis_out$Rsquared <- as.numeric(adonis_out$Rsquared)
+
+p <- ggbarplot(data = adonis_out, x = "Variable", y = "Rsquared", sort.val = "asc",
+          label = TRUE, lab.nb.digits = 3,
+          ylab = "Proportion of explained variance",
+          lab.hjust = -0.1, lab.vjust = 0.4)
+
+ggpar(p, rotate = TRUE, ylab = FALSE) + 
+  ylim(c(0,0.45))
+```
+
+```{#r}
+# save file
+pdf(paste0(OUTDIR, "MGBC_suppfig2b_explained_variance_individual.pdf"), height = 4.67, width = 5.5)
+ggpar(p, rotate = TRUE, ylab = FALSE) + 
+  ylim(c(0,0.45))
+dev.off()
+```
+
+
+```{#r}
+# run adonis model using all variables to look for dependence
+md_tmp <- md[which(complete.cases(md)),]
+md_tmp[md_tmp == ""] <- NA
+md_tmp <- md_tmp[which(complete.cases(md_tmp)),]
+
+d <- data[which(data$Sample %in% md_tmp$Sample),]
+otu <- dcast(d, Species ~ Sample)
+otu[is.na(otu)] <- 0
+rownames(otu) <- otu$Species
+otu_m <- as.matrix(otu[,c(2:ncol(otu))])
+t_d.czm <- cmultRepl(X = t(otu_m), label = 0, method = "CZM")
+t_d.clr <- t(apply(t_d.czm, 1, function(x){log(x) - mean(log(x))}))
+aitch <- vegdist(x = t_d.clr, method = "euc", binary = FALSE)
+
+# run adonis
+aitch.m <- as.matrix(aitch)
+
+A.model <- adonis(aitch.m ~ Study+Institute+Vendor_name_full+Age_numeric+Institute_country+Treatment+Vendor_country+Dietary_Supplement+Institute_continent+Genotype+Diet+GI_tissue+Sex+Microbiota_status+Lab_v_Wild, data = md_tmp, permutations = 999) 
+
+A.model.df <- data.frame(Variable=row.names(A.model$aov.tab)[c(1:length(row.names(A.model$aov.tab))-1)], 
+                         Rsquared=A.model$aov.tab[c(1:length(row.names(A.model$aov.tab))-1),5])
+```
+
+Call:
+adonis(formula = aitch.m ~ Study + Institute + Vendor_name_full +      Age + Institute_country + Treatment + Vendor_country + Dietary_Supplement +      Institute_continent + Genotype + Diet + GI_tissue + Sex +      Microbiota_status + Lab_v_Wild, data = md_tmp, permutations = 999) 
+
+Permutation: free
+Number of permutations: 999
+
+Terms added sequentially (first to last)
+
+                     Df SumsOfSqs MeanSqs F.Model      R2 Pr(>F)    
+Study                51   1546356 30320.7 26.6027 0.40488  0.001 ***
+Institute             5    109688 21937.6 19.2476 0.02872  0.001 ***
+Vendor_name_full      3     11711  3903.6  3.4249 0.00307  0.001 ***
+Age                  17     27448  1614.6  1.4166 0.00719  0.001 ***
+Treatment            36     68668  1907.4  1.6735 0.01798  0.001 ***
+Dietary_Supplement    6     54631  9105.1  7.9887 0.01430  0.001 ***
+Genotype              2     22077 11038.5  9.6849 0.00578  0.001 ***
+Diet                  2     10863  5431.6  4.7655 0.00284  0.001 ***
+GI_tissue             3      5397  1799.1  1.5785 0.00141  0.006 ** 
+Sex                   1      6004  6003.9  5.2677 0.00157  0.001 ***
+Microbiota_status     1      1720  1719.9  1.5090 0.00045  0.098 .  
+Residuals          1715   1954687  1139.8         0.51180           
+Total              1842   3819250                 1.00000           
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+```{#r}
+A.model.order <- c(A.model.df$Variable[order(A.model.df$Rsquared[c(1:nrow(A.model.df)-1)], decreasing=TRUE)], "Residuals")
+
+p <- ggbarplot(A.model.df, x = "Variable", y = "Rsquared", 
+          order = rev(A.model.order),
+          label = TRUE, lab.nb.digits = 3, lab.hjust = -0.1, lab.vjust = 0.4,
+          ylab = "Proportion of explained variance") +
+  ylim(c(0,0.53))
+ggpar(p, rotate = TRUE, ylab = FALSE)
+```
+
+```{#r}
+pdf(paste0(OUTDIR, "MGBC_figS2-opt_explained_variance_model.pdf"), height = 4.67, width = 5.5)
+ggpar(p, rotate = TRUE, ylab = FALSE)
+dev.off()
+```
+
+
+# Supplementary Figure 2c
+
+```{r}
+control_md <- md[which(md$Treatment == "Control" & 
+                         md$Genetic_background == "C57BL/6" &
+                         md$Compartment == "Faeces" &
+                         md$Diet == "Chow" &
+                         md$Genotype == "Wildtype" &
+                         complete.cases(md$Institute)),]
+control_md_10 <- control_md[which(control_md$Institute %in% names(table(control_md$Institute))[table(control_md$Institute) >= 10]),]
+d_10 <- bS[which(bS$Sample %in% control_md_10$Sample),]
+
+otu_10 <- dcast(d_10, Species ~ Sample)
+otu_10[is.na(otu_10)] <- 0
+rownames(otu_10) <- otu_10$Species
+
+otu_10 <- as.matrix(otu_10[,c(2:ncol(otu_10))])
+
+d.czm.10 <- cmultRepl(X = t(otu_10), label = 0, method = "CZM")
+d.clr.10 <- t(apply(d.czm.10, 1, function(x){log(x) - mean(log(x))}))
+
+df.clr.10 <- as.data.frame(d.clr.10)
+df.clr.10$Sample <- row.names(d.clr.10)
+
+md_10 <- data.frame(Sample=control_md_10$Sample, Institute=control_md_10$Institute)
+```
+
+```{r}
+n_abun <- lapply(split(d_10, f = d_10$Species), function(x) {
+  data.frame(Species=unique(x$Species),
+             Mean_abundance=mean(x$Read_frac))
+}) %>% do.call("rbind", .)
+d_10_t20_species <- n_abun$Species[order(n_abun$Mean_abundance, decreasing = TRUE)] %>% head(n=20)
+```
+
+
+```{r}
+institute_names_short <- c("Beijing Genome Institute",
+                           "Gladstone Institute",
+                           "Harvard Medical School",
+                           "Huazhong Agricultural University",
+                           "Kyung Hee University",
+                           "Shanghai Jiao Tong University",
+                           "Nanyang Technological University",
+                           "National Institutes of Health",
+                           "Pfizer",
+                           "Philip Morris International R&D",
+                           "QIMR Berghofer",
+                           "Québec Heart and Lung Institute",
+                           "Sloan Kettering & Weill Cornell",
+                           "The Jackson Laboratory",
+                           "University of Geneva",
+                           "University of Georgia",
+                           "Wallenberg Laboratory",
+                           "Weizmann Institute of Science",
+                           "Wellcome Sanger Institute")
+```
+
+```{r}
+clr_md_10 <- merge(df.clr.10, md_10, by = "Sample")
+
+clr_md_10_t20 <- clr_md_10[,c(1,which(colnames(clr_md_10) %in% d_10_t20_species),ncol(clr_md_10))]
+
+# get mean species abundances per institute
+abun_10 <- lapply(split(clr_md_10_t20, f = clr_md_10_t20$Institute), function(x) {
+  apply(x[,c(2:21)], 2, mean)
+}) %>% do.call("rbind", .)
+
+row.names(abun_10) <- institute_names_short
+
+pheatmap(mat= as.matrix(abun_10), show_rownames = TRUE, show_colnames = TRUE, na_col = "grey", angle_col = 90)
+```
+
+```{#r}
+pdf(paste0(OUTDIR, "MGBC_fig2c_control_heatmap_abun20_R2.pdf"), width = 6, height = 5)
+pheatmap(mat=as.matrix(abun_10), show_rownames = TRUE, show_colnames = TRUE, na_col = "grey", angle_col = 90, 
+         cluster_rows = TRUE, cluster_cols = TRUE, clustering_method = "complete", 
+         treeheight_row = 30, treeheight_col = 30)
+dev.off()
+```
+
+
+# Supplementary Figure 2d
+
+```{r}
+wild_samples <- md$Sample[md$Lab_v_Wild == "Wild"]
+lab_samples <- md$Sample[which(md$Lab_v_Wild == "Laboratory")]
+
+df_wild <- bS[bS$Sample %in% wild_samples,]
+df_lab <- bS[bS$Sample %in% lab_samples,]
+```
+
+```{r}
+data_summary_wild <- lapply(split(df_wild, f = df_wild$Species), function(x) {
+  SPECIES = unique(x$Species)
+  MEAN = mean(x$Read_frac)
+  PREV = length(which(x$Read_frac >= 0.01)) # prevalence of 0.01% reads
+  PREV_FRAC = PREV / length(unique(df_wild$Sample)) * 100
+  MEAN_OF_PREV = mean(x$Read_frac[which(x$Read_frac >= 0.01)])
+  MAX = max(x$Read_frac)
+  
+  data.frame(Species=SPECIES,
+             All_mean=MEAN,
+             Mean_of_frac=MEAN_OF_PREV,
+             Prevalence_count=PREV,
+             Prevalence_frac=PREV_FRAC,
+             Max=MAX)
+}) %>% do.call("rbind", .)
+
+data_summary_wild[is.na(data_summary_wild)] <- 0
+```
+
+```{r}
+data_summary_lab <- lapply(split(df_lab, f = df_lab$Species), function(x) {
+  SPECIES = unique(x$Species)
+  MEAN = mean(x$Read_frac)
+  PREV = length(which(x$Read_frac >= 0.01)) # prevalence of 0.01% reads
+  PREV_FRAC = PREV / length(unique(df_lab$Sample)) * 100
+  MEAN_OF_PREV = mean(x$Read_frac[which(x$Read_frac >= 0.01)])
+  MAX = max(x$Read_frac)
+  
+  data.frame(Species=SPECIES,
+             All_mean=MEAN,
+             Mean_of_frac=MEAN_OF_PREV,
+             Prevalence_count=PREV,
+             Prevalence_frac=PREV_FRAC,
+             Max=MAX)
+}) %>% do.call("rbind", .)
+
+data_summary_lab[is.na(data_summary_lab)] <- 0
+```
+
+```{r}
+# merge wild lab and lab mouse 
+df_wl <- merge(data_summary_wild, data_summary_lab, by = "Species", suffixes = c(".W", ".L"))
+df_wl <- merge(x = df_wl, y = ntax, all = TRUE, by = "Species")
+df_wl[is.na(df_wl)] <- 0
+```
+
+```{r}
+## combine phyla and stats line
+p <- ggscatter(df_wl, x = "Prevalence_frac.W", y = "Prevalence_frac.L",
+          color = "Phylum", fill = "Phylum",
+          palette = phycol,
+          xlab = "Prevalence in wild mice (%)",
+          ylab = "Prevalence in laboratory mice (%)"
+          ) +
+  geom_smooth(method=lm, color="black") +
+  #stat_regline_equation() +
+  stat_cor()
+
+ggpar(p, xlab = "Prevalence in wild mice (%)", ylab = "Prevalence in laboratory mice (%)", legend = "right")
+```
+
+```{#r}
+# save file
+pdf(paste0(OUTDIR, "MGBC_suppfig2d_lab_v_wild_prev_scatter_COMB.pdf"), height = 5, width = 7)
+ggpar(p, xlab = "Prevalence in wild mice (%)", ylab = "Prevalence in laboratory mice (%)", legend = "right")
+dev.off()
+```
+
+
+### Number of unique and shared species between lab and wild cohorts
+```{r}
+# present in both wild and lab = 842
+length(df_wl$Species[df_wl$Prevalence_frac.L > 0 & df_wl$Prevalence_frac.W > 0])
+# wild only = 2
+length(df_wl$Species[df_wl$Prevalence_frac.L == 0 & df_wl$Prevalence_frac.W > 0])
+# lab only = 240
+length(df_wl$Species[df_wl$Prevalence_frac.L > 0 & df_wl$Prevalence_frac.W == 0])
+# 1084 total
+```
+
+
+# Supplementary Figure 2e
+
+```{r}
+data <- bS[,c(1,2,4)]
+otu <- dcast(data, Species ~ Sample)
+otu[is.na(otu)] <- 0
+rownames(otu) <- otu$Species
+otu_m <- as.matrix(otu[,c(2:ncol(otu))])
+```
+
+```{r}
+# Aitchison distance
+d.czm <- cmultRepl(X = t(otu_m), label = 0, method = "CZM") # bayesian replacement of zeros
+d.clr <- t(apply(d.czm, 1, function(x){log(x) - mean(log(x))})) # geometric mean
+
+rownames(md) <- md$Sample
+lab_wild <- Maaslin2(input_data = d.clr, input_metadata = md, 
+         output = paste0(OUTDIR, "LW_Maaslin2/"), 
+         min_abundance = 0.01,
+         normalization = "NONE",
+         transform = "NONE",
+         fixed_effects = c("Lab_v_Wild")
+         )
+```
+
+```{r}
+lw_maas <- lab_wild$results
+
+ntax$feature <- gsub(pattern = "^1", replacement = "X1", ntax$Species) %>% 
+  gsub(pattern = "^5", replacement = "X5", ntax$Species) %>% 
+  gsub(pattern = " ", replacement = ".") %>% 
+  gsub(pattern = "-", replacement = ".")
+
+lw_maas <- merge(x = lw_maas, y = ntax, by = "feature", all.x = TRUE)
+lw_maas$qval_t <- -log10(lw_maas$qval)
+```
+
+```{r}
+lw_maas$Signif <- "NS"
+lw_maas$Signif[lw_maas$qval <= 0.05 & lw_maas$coef > 0] <- "Wild"
+lw_maas$Signif[lw_maas$qval <= 0.05 & lw_maas$coef < 0] <- "Lab"
+```
+
+```{r}
+## sort by coefficient (fold-change) 
+# wild
+w_maas_tmp <- lw_maas[lw_maas$Signif == "Wild",]
+
+# lab
+l_maas_tmp <- lw_maas[lw_maas$Signif == "Lab",]
+
+# merge top n species for abundance
+top_n=25
+lw_abun <- rbind(w_maas_tmp[order(abs(w_maas_tmp$coef), decreasing = TRUE),] %>% head(n=top_n),
+                 l_maas_tmp[order(abs(l_maas_tmp$coef), decreasing = TRUE),] %>% head(n=top_n))
+
+p <- ggbarplot(lw_abun, x = "Species", y = "coef", 
+               sort.val = "asc",sort.by.groups = FALSE,
+               color = "Phylum", fill = "Phylum",
+               palette = phycol,
+               ylab = FALSE) 
+ggpar(p, rotate = FALSE, legend = "right", ylab = "Fold-change in abundance")
+```
+
+```{#r}
+# save file
+pdf(paste(OUTDIR, "MGBC_fig_lab_wild_top25_abundance.pdf"), height = 10, width = 8)
+ggpar(p, rotate = TRUE, legend = "right", ylab = "Fold-change in abundance")
+dev.off()
+```
+
