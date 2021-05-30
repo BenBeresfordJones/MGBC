@@ -1,0 +1,199 @@
+---
+title: "MGBC_SuppFig4"
+author: "Benjamin Beresford-Jones"
+date: "30/05/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Required datasets:
+- butyrate_species_summary.tsv
+- bracken_data_postqc_2664.tsv
+- MGBC_1094_tax_paths.tsv
+- MCC_276_rep_tax.tsv
+
+## load libraries
+```{r}
+library(magrittr)
+library(ggplot2)
+library(ggpubr)
+library(grid)
+library(gridExtra)
+library(reshape2)
+```
+
+## set defaults
+```{r}
+INDIR="SuppFig4_data/" # unzip
+# OUTDIR="CHANGEME" # change to save figures to specified directory
+
+bS_cn <- c("Sample", "Species", "Reads_assigned", "Read_frac")
+tax_cn <- c("Domain", "Phylum", "Class", "Order", "Family", "Genus", "Species")
+
+f1_cn <- c("MGBC_id", "Orig_name", "Study", "Completeness", "Contamination", "Size", "N_contigs", "N50", "MCL", "QS", "CMseq", "Qual_level", "Lowest_tax_gtdb", "Lowest_tax_rank", "GTDB_taxonomy")
+
+dm_cn <- c("Reference", "Genome", "Pangenome_frac", "N_genomes", "Total_genomes", "Mean_seq_id", "Max_seq_id", "Min_seq_id", "Mean_bit_score", "Clus_90_rep", "Species", "Host", "Taxonomy")
+```
+
+## build colour palettes
+```{r}
+phycol=c("#377eb8","#8CB302","#008C74","#d95f02","#FF974F","#FFED6F","#FDCDAC","#ffd92f","#e22426","#B3B3B3","#FBB4AE","#984ea3","#35478C","#7FC97F","#FF73C5","#BF5693")
+phylabs=c("Actinobacteriota","Bacteroidota","Campylobacterota","Cyanobacteria","Deferribacterota","Desulfobacterota","Elusimicrobiota","Firmicutes","Firmicutes_A","Firmicutes_B","Firmicutes_C","Proteobacteria","Spirochaetota","Thermotogota","Verrucomicrobiota","Verrucomicrobiota_A")
+names(phycol) <- phylabs
+
+tax_level_col <- get_palette("Paired", k = 3)
+tax_level_col[3] <- "#45BF55"
+names(tax_level_col) <- c("Species", "Genus", "Family")
+
+but_palette <- c("BCOAT"="#e68200",
+                 "PTB_BUK"="purple", 
+                 "None"="darkgrey")
+```
+
+# Load datasets
+```{r}
+# butyrate data
+but <- read.delim(file=paste0(INDIR, "butyrate_species_summary.tsv"), header=F, 
+                  col.names = c("Feature", "Species_rep", "Pangenome_frac", "Positive_genomes", "Total_genomes", "Species", "Host", "Taxonomy"))
+bcoat <- unique(but$Feature)[1] # IPR023990
+ptb_buk <- unique(but$Feature)[2] # IPR011245:IPR014079
+
+# bracken data
+bS <- read.delim(file = paste0(INDIR, "bracken_data_postqc_2664.tsv"), header = TRUE)
+
+# Get novel species-level taxonomy data
+ntax <- read.delim(file = paste0(INDIR, "MGBC_1094_tax_paths.tsv"), header = FALSE, 
+                   col.names = c("Domain", "Phylum", "Class", "Order", "Family", "Genus", "Species"))
+ntax <- apply(ntax, 2, function(x) {gsub(x=x, pattern = ".__", replacement = "")} ) %>% as.data.frame
+
+# get data for the MCC
+MCC_tax <- read.delim(file = paste0(INDIR, "MCC_276_rep_tax.tsv"), header = FALSE, col.names = c("MGBC", tax_cn))
+MCC_tax <- apply(MCC_tax, 2, function(x) {gsub(x=x, pattern = ".__", replacement = "")} ) %>% as.data.frame
+```
+
+
+# Supplementary Figure 4b
+
+```{r}
+species_summary <- lapply(split(bS, f = bS$Species), function(x) {
+  SPECIES = unique(x$Species)
+  MEAN = mean(x$Read_frac)
+  PREV = length(which(x$Read_frac >= 0.01)) # use >0.01% of reads to define prevalence # checkes using 0.1 -> max prev ~70%
+  PREV_FRAC = PREV / length(unique(bS$Sample)) * 100
+  MEAN_OF_PREV = mean(x$Read_frac[which(x$Read_frac >= 0.1)])
+  MAX = max(x$Read_frac)
+  
+  data.frame(Species=SPECIES,
+             All_mean=MEAN,
+             Mean_of_frac=MEAN_OF_PREV,
+             Prevalence_count=PREV,
+             Prevalence_frac=PREV_FRAC,
+             Max=MAX)
+}) %>% do.call("rbind", .)
+
+species_summary <- merge(x = species_summary, y = ntax, by = "Species")
+```
+
+```{r}
+MB <- but[but$Host == "MOUSE",]
+
+MB_ns_level <- MB$Species
+
+for (i in grep(pattern = "s__", MB$Species, invert = TRUE)) {
+  RANK <- lapply(strsplit(MB$Species[i], split = "__"), function(x) {x[1]}) %>% unlist
+  TAX_STEM <- lapply(strsplit(MB$Species[i], split = "__"), function(x) {x[2]}) %>% unlist
+  
+  if (RANK == "g") {
+    SPECIES <- paste0("s__", TAX_STEM, " ", MB$Species_rep[i])
+  } else {
+    SPECIES <- paste0("s__", TAX_STEM, "_NOV ", MB$Species_rep[i])
+  }
+  
+  MB$Species[i] <- SPECIES
+}
+
+MB$Print_names <- gsub(pattern = "s__", replacement = "", MB$Species) # all names should be species-level
+
+bcoat_species <- MB$Species[MB$Pangenome_frac >= 0.7 & MB$Feature == bcoat] %>% gsub(pattern = "s__", replacement = "")
+
+ptb_buk_species <- MB$Species[MB$Pangenome_frac >= 0.7 & MB$Feature == ptb_buk] %>% gsub(pattern = "s__", replacement = "")
+```
+
+
+```{r}
+buk_species <- unique(c(ptb_buk_species, bcoat_species))
+MB_2 <- MB[MB$Print_names %in% buk_species,]
+tmp <- species_summary[species_summary$Species %in% MB_2$Print_names,]
+
+abun_20 <- head(tmp[order(tmp$All_mean, decreasing = TRUE),], 90)
+
+abun_20$MCC <- "MAG only"
+abun_20$MCC[abun_20$Species %in% MCC_tax$Species] <- "Isolated in MCC"
+abun_20$MCC <- factor(abun_20$MCC, levels = c("MAG only", "Isolated in MCC"))
+abun_20$'Species cultured in the MCC?'<- ifelse(abun_20$MCC == "MAG only", "No", "Yes")
+
+abun_20_data <- bS[which(bS$Species %in% abun_20$Species),]
+abun_20_data$MCC <- "MAG only"
+abun_20_data$MCC[abun_20_data$Species %in% MCC_tax$Species] <- "Isolated in MCC"
+abun_20_data$MCC <- factor(abun_20_data$MCC, levels = c("MAG only", "Isolated in MCC"))
+abun_20_data <- merge(x = abun_20_data, y = ntax, by = "Species")
+
+bold_labels <- rep("plain", 90)
+bold_labels[which(abun_20$Species %in% MCC_tax$Species)] <- "bold"
+
+
+# butyrate metadata
+abun_20_data$Status <- "None"
+abun_20_data$Status[abun_20_data$Species %in% ptb_buk_species] <- "PTB_BUK"
+abun_20_data$Status[abun_20_data$Species %in% bcoat_species] <- "BCOAT"
+
+abun_20$Status <- "None"
+abun_20$Status[abun_20$Species %in% ptb_buk_species] <- "PTB_BUK"
+abun_20$Status[abun_20$Species %in% bcoat_species] <- "BCOAT"
+
+abun_20_data$Status <- factor(abun_20_data$Status, levels = c("PTB_BUK", "BCOAT", "None"))
+abun_20$Status <- factor(abun_20$Status, levels = c("PTB_BUK", "BCOAT", "None"))
+
+p1 <- ggline(abun_20_data, x = "Species", y = "Read_frac",
+            plot_type = "p", 
+            order = rev(abun_20$Species), 
+            shape = "MCC",
+            color = "Status", fill = "Status", palette = but_palette)
+p1 <- ggpar(p1, rotate = TRUE, ylab = "% Abundance", legend = "none") +
+  theme(
+    plot.margin = unit(c(1,3,1,3), "mm"),
+    axis.title.y = element_blank(),
+    axis.text.y = element_text(face = rev(bold_labels))
+  )
+
+
+p2 <- ggline(abun_20, x = "Species", y = "Prevalence_frac",
+             plot_type = "p",
+             order = rev(abun_20$Species),
+            color = "Status", fill = "Status", shape = "Species cultured in the MCC?",
+            palette = but_palette)
+p2 <- ggpar(p2, rotate = TRUE, ylab = "% Prevalence", legend = "none") +
+  theme(
+        axis.title.y = element_blank(), 
+        axis.text.y = element_blank(), 
+        axis.ticks.y = element_blank(),
+        axis.line.y = element_blank(),
+        plot.margin = unit(c(1,3,1,3), "mm"),
+        legend.position = "right"
+  ) +
+  labs(shape="Species cultured \nin the MCC?",col="Butyrate pathway") 
+
+grid.arrange(p1,p2,ncol=2,widths=c(38/70,22/60))
+```
+
+```{#r}
+# save files
+pdf(paste0(OUTDIR, "MGBC_suppfig4_abundance_butyrate_60.pdf"), height = 15, width = 8)
+grid.arrange(p1,p2,ncol=2,widths=c(38/70,22/60))
+dev.off()
+```
+
+

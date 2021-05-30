@@ -1,0 +1,291 @@
+---
+title: "MGBC_Fig3"
+author: "Benjamin Beresford-Jones"
+date: "29/05/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Required files:
+- MGBC_md_65097.tsv
+- kraken_unclassified.tsv
+- upsetR_input.tsv
+- MGBC_iMGMC_rep_qc_data.tsv
+- nr_HQ_md_26640.tsv
+
+```{r}
+library(magrittr)
+library(ggplot2)
+library(ggpubr)
+library(grid)
+library(gridExtra)
+library(UpSetR)
+library(reshape2)
+```
+
+## set defaults
+```{r}
+INDIR="Fig3_data/" # unzip
+# OUTDIR="CHANGEME" # change to save figures to specified directory
+
+f1_cn <- c("MGBC_id", "Orig_name", "Study", "Completeness", "Contamination", "Size", "N_contigs", "N50", "MCL", "QS", "CMseq", "Qual_level", "Lowest_tax_gtdb", "Lowest_tax_rank", "GTDB_taxonomy")
+
+tax_order <- c("Domain", "Phylum", "Class", "Order", "Family", "Genus", "Species")
+
+rep_qc_cn <- c("MGBC", "iMGMC", "MGBC_Comp","MGBC_Cont", "MGBC_size", "MGBC_N_contigs", "MGBC_N50", "MGBC_MCL", "Taxon", 
+               "iMGMC_Comp","iMGMC_Cont", "iMGMC_size", "iMGMC_N_contigs", "iMGMC_N50", "iMGMC_MCL")
+
+qual_pal <- c("MQ"="#bdbdbd",
+              "HQ"="#2171b5")
+```
+
+## build colour palettes
+```{r}
+phycol=c("#377eb8","#8CB302","#008C74","#d95f02","#FF974F","#FFED6F","#FDCDAC","#ffd92f","#e22426","#B3B3B3","#FBB4AE","#984ea3","#35478C","#7FC97F","#FF73C5","#BF5693")
+phylabs=c("Actinobacteriota","Bacteroidota","Campylobacterota","Cyanobacteria","Deferribacterota","Desulfobacterota","Elusimicrobiota","Firmicutes","Firmicutes_A","Firmicutes_B","Firmicutes_C","Proteobacteria","Spirochaetota","Thermotogota","Verrucomicrobiota","Verrucomicrobiota_A")
+names(phycol) <- phylabs
+```
+
+## load datasets
+```{r}
+# mgbc md
+mgbc <- read.delim(file = paste0(INDIR, "MGBC_md_65097.tsv"), header = F, col.names = f1_cn)
+# kraken unclassified
+kU <- read.delim(file = paste0(INDIR, "kraken_unclassified.tsv"), header = F, col.names = c("Database", "Sample", "Unclassified"))
+kU$Classified <- 100-kU$Unclassified
+# upset plot input
+upsetList <- read.delim(file = paste0(INDIR, "upsetR_input.tsv"), header = F, col.names = c("Database", "Rep"))
+list <- lapply(split(upsetList, f = upsetList$Database), function(x) {x$Rep}) # format for list input to upsetR
+# rep qc data
+rqc <- read.delim(file = paste0(INDIR, "MGBC_iMGMC_rep_qc_data.tsv"), header = F, col.names = rep_qc_cn)
+nrhq <- read.delim(file = paste0(INDIR,"nr_HQ_md_26640.tsv"), header = F, col.names = f1_cn)
+```
+
+# Figure 3a
+
+```{r}
+# get only MAG data (MGBC1...)
+MAGs <- mgbc[grep(pattern = "MGBC1", mgbc$MGBC_id),]
+```
+
+```{r}
+p <- ggscatterhist(data = MAGs, x = "Completeness", y = "Contamination", 
+                   size = 0.1,
+                   color = "Qual_level", 
+                   palette = qual_pal,
+                   margin.plot = "hist",
+                   bins = 30,
+                   margin.params = list(fill = "Qual_level", color = "black", size = 0.5),
+                   legend = "none",
+                   main.plot.size = 1,
+                   margin.plot.size = 2) 
+p
+```
+
+```{#r}
+# save file
+pdf(paste0(OUTDIR, "MGBC_SF2b_MAG_qc_comp_v_cont.pdf"), width = 7, height = 5)
+p
+dev.off()
+```
+
+
+# Figure 3b
+```{r}
+MAGs <- cbind(MAGs, 
+      lapply(strsplit(MAGs$GTDB_taxonomy, split = ";.__"), unlist) %>% do.call("rbind", .))
+
+colnames(MAGs)[16:ncol(MAGs)] <- tax_order
+```
+
+```{r}
+qphylum <- sapply(unique(MAGs$Phylum), function(x) {
+  cbind(Phylum = x,
+        Total = sum(MAGs$Phylum == x),
+        MQ = sum(MAGs$Phylum == x & MAGs$Qual_level == "MQ"),
+        HQ = sum(MAGs$Phylum == x & MAGs$Qual_level == "HQ"))
+}) %>% t %>% data.frame
+
+qphylum[,2:4] <- apply(qphylum[,2:4], 2, as.numeric)
+
+colnames(qphylum) <- c("Phylum", "Total", "MQ", "HQ")
+```
+
+```{r}
+qphylum_order <- qphylum$Phylum[order(qphylum$HQ, decreasing = FALSE)]
+
+qphylum_m <- melt(qphylum, id.vars = "Phylum", measure.vars = c("MQ", "HQ"))
+
+qphylum_m$value <- as.numeric(qphylum_m$value)
+
+p <- ggbarplot(qphylum_m, x = "Phylum", y = "value", 
+               ylab = "Number of MAGs",
+               color = "variable",
+               fill = "variable",
+          palette = qual_pal,
+          order = qphylum_order)
+
+ggpar(p, rotate = TRUE, ylab = FALSE, legend.title = "Quality")
+```
+
+```{#r}
+# save file
+pdf(paste0(OUTDIR, "MGBC_SF2c_MAG_qc_phylum_quality.pdf"), width = 7, height = 5)
+ggpar(p, rotate = TRUE, ylab = FALSE, legend.title = "Quality")
+dev.off()
+```
+
+
+# Figure 3c
+```{r}
+p <- upset(fromList(list), order.by = "freq", mainbar.y.label = "Species Intersections", 
+      nsets = 6, nintersects = 20, 
+      sets.x.label = "Number of species",
+      sets.bar.color = c("#2171b5", "#bdbdbd", "#2171b5", "#2171b5", "#2171b5", "#2171b5"))
+p
+```
+
+```{#r}
+# save file
+pdf(paste0(OUTDIR, "MGBC_fig1d-MGMC_iMGMC_upset.pdf"), height = 4, width = 6)
+p
+dev.off()
+```
+
+```{r}
+# intersections:
+sum(upsetList$Database == "iMGMC")
+sum(upsetList$Database == "MGBC_MAG")
+sum(upsetList$Rep[upsetList$Database == "iMGMC"] %in% upsetList$Rep[upsetList$Database == "MGBC_MAG"])
+```
+
+
+# Figure 3d
+```{r}
+nrhq$Phylum <- lapply(strsplit(nrhq$GTDB_taxonomy, split = ";.__"), function(x) {x[2]}) %>% unlist
+```
+
+```{r}
+rqc$MGBC_QS <- rqc$MGBC_Comp - 5*rqc$MGBC_Cont
+rqc$iMGMC_QS <- rqc$iMGMC_Comp - 5*rqc$iMGMC_Cont
+
+colnames(nrhq)[1] <- "MGBC"
+rqc <- merge(x=rqc, y=nrhq, by="MGBC", all.x = TRUE)
+```
+
+```{r}
+p <- ggscatter(rqc, x = "MGBC_QS", y = "iMGMC_QS", 
+          color = "Phylum", palette = phycol, xlab = "MGBC representative QS", ylab = "iMGMC representative QS") + 
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "darkgrey") +
+  ylim(c(70,100)) +
+  xlim(c(70,100))
+
+ggpar(p, legend = "none")
+```
+
+```{#r}
+# save file
+pdf(paste0(OUTDIR, "MGBC_fig1d-MGMC_iMGMC_rep_QS.pdf"), height = 4, width = 4)
+ggpar(p, legend = "none")
+dev.off()
+```
+
+```{r}
+# descriptive statistics
+mgbc_imp <- sum(rqc$MGBC_QS-rqc$iMGMC_QS > 0)
+imgmc_imp <- sum(rqc$MGBC_QS-rqc$iMGMC_QS < 0)
+nonimp <- sum(rqc$MGBC_QS-rqc$iMGMC_QS == 0)
+c("Improved with MGBC"=mgbc_imp, "Improved with iMGMC"=imgmc_imp, "Equivalent"=nonimp)/nrow(rqc)*100
+```
+
+
+# Figure 3e
+
+```{r}
+kU$DB_id <- NA
+kU$DB_id[kU$Database == "HUMAN_3006"] <- "Human"
+kU$DB_id[kU$Database == "IMGMC_804"] <- "iMGMC"
+kU$DB_id[kU$Database == "IMGMC_HQ_7369"] <- "hq iMGMC"
+kU$DB_id[kU$Database == "IMGMC_MQ_18306"] <- "mq iMGMC"
+kU$DB_id[kU$Database == "MCC_276"] <- "MCC"
+kU$DB_id[kU$Database == "MGBC_1094"] <- "MGBC"
+kU$DB_id[kU$Database == "MGBC_26640"] <- "hq MGBC"
+kU$DB_id[kU$Database == "MGBC_MQ_65097"] <- "mq MGBC"
+kU$DB_id[kU$Database == "MGC_239"] <- "MGCv1"
+kU$DB_id[kU$Database == "MGMB_100"] <- "mGMB"
+kU$DB_id[kU$Database == "MIBC_47"] <- "miBC"
+kU$DB_id[kU$Database == "PUBLIC_288"] <- "Public"
+kU$DB_id[kU$Database == "ISOLATE_564"] <- "MCC+Public"
+kU$DB_id[kU$Database == "NCBI"] <- "NCBI"
+```
+
+```{r}
+isolates <- c("miBC", "mGMB", "Public", "MCC", "MCC+Public")
+mq_gen <- c("MGCv1", "mq iMGMC", "mq MGBC")
+hq_gen <- c("iMGMC", "MGBC", "hq iMGMC", "hq MGBC")
+human <- c("Human")
+
+kU$Gen_status <- NA
+kU$Gen_status[kU$DB_id %in% isolates] <- "Isolate only"
+kU$Gen_status[kU$DB_id %in% mq_gen] <- "Medium quality"
+kU$Gen_status[kU$DB_id %in% hq_gen] <- "High quality"
+kU$Gen_status[kU$DB_id %in% human] <- "Human-derived"
+```
+
+```{r}
+db_order <- c("miBC", "mGMB", "Public", "MCC", "MCC+Public", # isolate DBs
+              "MGCv1", "iMGMC", "MGBC", "hq iMGMC", "hq MGBC", "mq iMGMC", "mq MGBC", # MAG DBs
+              "NCBI", "Human") # non-mouse DBs
+```
+
+```{r}
+kU_nr <- kU[which(!kU$DB_id %in% c("MGBC", "iMGMC")),]
+
+kU_nr$DB_id[kU_nr$DB_id == "hq iMGMC"] <- "iMGMC"
+kU_nr$DB_id[kU_nr$DB_id == "hq MGBC"] <- "MGBC"
+
+kr_comp <- list(c("iMGMC", "MGBC"), c("mq iMGMC", "mq MGBC"))
+
+p <- ggboxplot(kU_nr, x = "DB_id", "Classified", 
+          ylab = "Classification efficiency (%)", xlab = "Database", 
+          fill = "Gen_status", #palette = "npg",
+          order = db_order, 
+          notch = TRUE, outlier.size = 0.01) + 
+  rotate_x_text(30) +
+  stat_compare_means(comparisons = kr_comp, label = "p.signif", tip.length = 0, label.y = c(100, 102))
+
+ggpar(p, legend.title = "Genome status", legend = "right")
+```
+
+
+```{#r}
+# save file
+pdf(paste0(OUTDIR, "MGBC_fig1d-metagenome_efficiency.pdf"), height = 4, width = 8)
+ggpar(p, legend.title = "Genome status", legend = "right")
+dev.off()
+```
+
+
+```{r}
+# database efficiency summary statistics
+db_summary <- lapply(split(kU, f = kU$Database), function(x) {
+  summary(x$Classified)
+}) %>% do.call("rbind", .) %>% as.data.frame
+db_summary$Database <- row.names(db_summary)
+db_summary
+```
+
+```{r}
+# selected comparative analyses
+db_summary$Mean[row.names(db_summary) == "MGBC_26640"] - db_summary$Mean[row.names(db_summary) == "IMGMC_HQ_7369"]
+db_summary$Mean[row.names(db_summary) == "MGBC_26640"] - db_summary$Mean[row.names(db_summary) == "MGC_239"]
+```
+
+
+
+
+
+

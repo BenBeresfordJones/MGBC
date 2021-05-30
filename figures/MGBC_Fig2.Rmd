@@ -1,0 +1,286 @@
+---
+title: "MGBC_Fig2"
+author: "Benjamin Beresford-Jones"
+date: "29/05/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Required files:
+- nr_HQ_md_26640.tsv
+- MGBC_rep_species_tax_1094.tsv
+- all_rep_tax.tsv
+
+## load libraries
+```{r}
+library(magrittr)
+library(ggplot2)
+library(ggpubr)
+library(grid)
+library(gridExtra)
+library(UpSetR)
+```
+
+## set defaults
+```{r}
+INDIR="Fig2_data/" # unzip
+# OUTDIR="CHANGEME" # change to save figures to specified directory
+
+f1_cn <- c("MGBC_id", "Orig_name", "Study", "Completeness", "Contamination", "Size", "N_contigs", "N50", "MCL", "QS", "CMseq", "Qual_level", "Lowest_tax_gtdb", "Lowest_tax_rank", "GTDB_taxonomy")
+
+tax_order <- c("Domain", "Phylum", "Class", "Order", "Family", "Genus", "Species")
+```
+
+## build colour palettes
+```{r}
+phycol=c("#377eb8","#8CB302","#008C74","#d95f02","#FF974F","#FFED6F","#FDCDAC","#ffd92f","#e22426","#B3B3B3","#FBB4AE","#984ea3","#35478C","#7FC97F","#FF73C5","#BF5693")
+phylabs=c("Actinobacteriota","Bacteroidota","Campylobacterota","Cyanobacteria","Deferribacterota","Desulfobacterota","Elusimicrobiota","Firmicutes","Firmicutes_A","Firmicutes_B","Firmicutes_C","Proteobacteria","Spirochaetota","Thermotogota","Verrucomicrobiota","Verrucomicrobiota_A")
+names(phycol) <- phylabs
+```
+
+## load datasets
+```{r}
+# non-redundant, high quality genomes of the MGBC (n = 26640)
+nrhq <- read.delim(file = paste0(INDIR,"nr_HQ_md_26640.tsv"), header = F, col.names = f1_cn)
+
+tax_paths <- read.delim(file = paste0(INDIR, "MGBC_rep_species_tax_1094.tsv"), header = FALSE, col.names = c("MGBC_id", "Rep_taxonomy"))
+rep_tax <- read.delim(file = paste0(INDIR, "all_rep_tax.tsv"), header = FALSE, col.names = c("MGBC_id", "Lowest_tax", "Rank", "Taxonomy"))
+rep_tax <- merge(x = tax_paths, y = rep_tax, by = "MGBC_id", all.x = TRUE)
+```
+
+
+# Figure 2b
+```{r}
+# get phylum rank for genomes
+nrhq$Phylum <- lapply(strsplit(nrhq$GTDB_taxonomy, split = ";.__"), function(x) {x[2]}) %>% unlist
+```
+
+```{r}
+## part 1
+# % novel genomes per phylum
+novel_stats <- lapply(split(nrhq, f = nrhq$Phylum), function(x) {
+  FRAC <- nrow(x)/nrow(nrhq)*100
+  NOVEL <- length(which(x$Lowest_tax_rank != "species"))/nrow(x)*100
+  data.frame(Phylum=unique(x$Phylum), 
+             FRAC, 
+             NOVEL)
+}) %>% do.call("rbind", .)
+
+# order the phyla by % of genomes
+f1b_order <- novel_stats$Phylum[order(novel_stats$FRAC, decreasing = TRUE)]
+
+# % percentage genomes by phyla (DRAFT)
+p <- ggbarplot(novel_stats, x = "Phylum", y = "FRAC", 
+               order = rev(f1b_order),
+               color = "Phylum", fill = "Phylum",
+               palette = phycol,
+               ylab = "% MGBC genomes") +
+  theme_pubr()
+ggpar(p, legend = "right", rotate = TRUE, ylab = FALSE)
+
+
+## part 2
+rep_tax$Phylum <- lapply(strsplit(rep_tax$Rep_taxonomy, split = ";.__"), function(x) {x[2]}) %>% do.call("rbind", .)
+
+novel_stats_species <- lapply(split(rep_tax, f = rep_tax$Phylum), function(x) {
+  FRAC <- nrow(x)/nrow(rep_tax)*100
+  NOVEL <- length(which(x$Rank != "species"))/nrow(x)*100
+  data.frame(Phylum=unique(x$Phylum), 
+             FRAC, 
+             NOVEL)
+}) %>% do.call("rbind", .)
+
+
+# % percentage novel species per phylum (DRAFT)
+p <- ggbarplot(novel_stats_species, x = "Phylum", y = "NOVEL", 
+               order = rev(f1b_order),
+               color = "Phylum", fill = "Phylum",
+               palette = phycol,
+               ylab = "% Novel species") +
+  theme_pubr()
+ggpar(p, legend = "right", rotate = TRUE, ylab = FALSE)
+```
+
+
+```{r}
+novel_stats$Phylum <- factor(novel_stats$Phylum, levels = rev(f1b_order))
+novel_stats_species$Phylum <- factor(novel_stats$Phylum, levels = rev(f1b_order))
+
+g.mid<-ggplot(novel_stats,aes(x=1,y=Phylum)) + geom_text(aes(label=Phylum))+
+  geom_segment(aes(x=0.95,xend=0.952,yend=Phylum))+
+  ggtitle("")+
+  ylab(NULL)+
+  scale_x_continuous(expand=c(0,0),limits=c(0.95,1.05))+
+  theme(axis.title=element_blank(),
+        panel.grid=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks.y=element_blank(),
+        panel.background=element_blank(),
+        axis.text.x=element_text(color=NA),
+        axis.ticks.x=element_line(color=NA),
+        plot.margin = unit(c(2,0,2,-1), "mm"), # c(2,0,2,-1)
+        plot.title = element_text(hjust = 0.5)
+        )
+
+
+g1 <- ggplot(data = novel_stats, aes(x = Phylum, y = FRAC, color = Phylum, fill = Phylum)) +
+  geom_bar(stat = "identity") + ggtitle("% MGBC genomes") +
+  theme(axis.title.x = element_blank(), 
+        axis.title.y = element_blank(), 
+        axis.text.y = element_blank(), 
+        axis.ticks.y = element_blank(),
+        axis.text.x = element_text(colour = "black"),
+        panel.border = element_rect(color = "black", fill = NA),
+        panel.background = element_blank(),
+        panel.grid.major.x = element_blank(),
+        panel.grid.major.y = element_blank(),
+        panel.grid.minor.y = element_blank(),
+        panel.grid.minor.x = element_blank(),
+        legend.position = "none",
+        plot.margin = unit(c(1,0,1,1), "mm"), # c(1,0,1,1)
+        plot.title = element_text(hjust = 0.5)) +
+  scale_color_manual(values=phycol) +
+  scale_fill_manual(values=phycol) +
+  scale_y_reverse() + 
+  coord_flip()
+  
+
+g2 <- ggplot(data = novel_stats_species, aes(x = Phylum, y = NOVEL, color = Phylum, fill = Phylum)) +xlab(NULL)+
+  geom_bar(stat = "identity") + ggtitle("% Novel species") +
+  theme(axis.title.x = element_blank(), axis.title.y = element_blank(), 
+        axis.text.y = element_blank(), 
+        axis.text.x = element_text(colour = "black"),
+        panel.border = element_rect(color = "black", fill = NA),
+        panel.background = element_blank(),
+        panel.grid.major.x = element_blank(),
+        panel.grid.major.y = element_blank(),
+        panel.grid.minor.y = element_blank(),
+        panel.grid.minor.x = element_blank(),
+        legend.position = "none",
+        plot.margin = unit(c(1,1,1,-1), "mm"), # c(1,1,1,-1)
+        plot.title = element_text(hjust = 0.5)) +
+  scale_color_manual(values=phycol) +
+  scale_fill_manual(values=phycol) +
+  coord_flip() 
+
+
+gg1 <- ggplot_gtable(ggplot_build(g1))
+gg2 <- ggplot_gtable(ggplot_build(g2))
+gg.mid <- ggplot_gtable(ggplot_build(g.mid))
+
+
+grid.arrange(gg1,gg.mid,gg2,ncol=3,widths=c(7/18,4/18,7/18))
+```
+
+```{#r}
+# save figure
+pdf(paste0(OUTDIR, "MGBC_fig1b-phyla_novelty.pdf"), height = 3, width = 9.67)
+grid.arrange(gg1,gg.mid,gg2,ncol=3,widths=c(7/18,4/18,7/18))
+dev.off()
+```
+
+```{r}
+# reference statistics
+novel_stats 
+```
+
+# Figure 2c
+
+```{r}
+MCC_p <- read.delim(file = paste0(INDIR, "MCC_phyla_counts.tsv"), header=F, col.names = c("Count", "Phylum"))
+bP <- read.delim(file = paste0(INDIR, "bracken.P.summary.tsv"), header=F, 
+                 col.names = c("Sample", "Phylum", "Reads_assigned", "Read_frac"))
+bP$Read_frac <- bP$Read_frac*100
+```
+
+## Average microbiome
+```{r}
+n_samples <- unique(bP$Sample) %>% length
+
+bP_mean <- lapply(split(bP, f = bP$Phylum), function(x) {
+  Phylum=unique(x$Phylum)
+  Read_frac=sum(x$Read_frac)/n_samples
+  data.frame(Phylum, Read_frac)
+}) %>% do.call("rbind", .)
+
+bP_mean$Collection <- "Microbiome"
+```
+
+## MCGC
+```{r}
+MGBC_p <- data.frame(table(nrhq$Phylum))
+colnames(MGBC_p) <- c("Phylum", "Count")
+
+MGBC_p$Read_frac <- MGBC_p$Count/sum(MGBC_p$Count)*100
+MGBC_p$Collection <- "MGBC"
+```
+
+## MCC
+```{r}
+MCC_p$Read_frac <- MCC_p$Count/sum(MCC_p$Count)*100
+MCC_p$Collection <- "MCC isolates"
+```
+
+```{r}
+collection_comparison <- rbind(MCC_p[,which(colnames(MCC_p) != "Count")],
+                               MGBC_p[,which(colnames(MGBC_p) != "Count")],
+                               bP_mean)
+
+p <- ggbarplot(data = collection_comparison, 
+          x = "Collection", y = "Read_frac",
+          ylab = "Proportion of classified reads (%)",
+          color = "Phylum", fill = "Phylum",
+          palette = phycol,
+           order = c("MCC isolates", "MGBC", "Microbiome"))
+
+ggpar(p, legend = "none", xlab = FALSE) +
+  theme(panel.grid.minor = element_blank(),
+    panel.grid.major.y = element_blank(),
+    axis.title.x = element_blank(),
+    legend.position = "none",
+    axis.title.y = element_text(size = 18)
+  ) 
+```
+
+```{#r}
+# save file
+pdf(paste0(OUTDIR, "MGBC_fig1c_MCC_MGBC_microbiome.pdf"), height = 5, width = 5)
+ggpar(p, legend = "none", xlab = FALSE) +
+  theme(panel.grid.minor = element_blank(),
+    panel.grid.major.y = element_blank(),
+    axis.title.x = element_blank(),
+    legend.position = "none",
+    axis.title.y = element_text(size = 18)
+  ) 
+dev.off()
+```
+
+### Run statistical analysis for Figure 2c
+```{r}
+colnames(bP_mean)[colnames(bP_mean) == "Read_frac"] <- unique(bP_mean$Collection)
+colnames(MGBC_p)[colnames(MGBC_p) == "Read_frac"] <- unique(MGBC_p$Collection)
+colnames(MCC_p)[colnames(MCC_p) == "Read_frac"] <- "MCC"
+
+chi_p <- merge(x = bP_mean, y = MGBC_p, by = "Phylum", all = TRUE)
+chi_p <- merge(x = chi_p, y = MCC_p, by = "Phylum", all = TRUE)
+
+chi_p[is.na(chi_p)] <- 0
+chi_p[,colnames(chi_p) %in% c("Microbiome", "MGBC", "MCC")]
+```
+
+```{r}
+## MGBC vs MB
+chisq.test(chi_p[,colnames(chi_p) %in% c("Microbiome", "MGBC")])
+# p-value = 1
+# MGBC and MB are not significantly different
+
+## MCC vs MB
+chisq.test(chi_p[,colnames(chi_p) %in% c("Microbiome", "MCC")])
+# p-value = 0.01479
+# MCC and MB are different
+```
+
+

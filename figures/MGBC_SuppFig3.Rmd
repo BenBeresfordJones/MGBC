@@ -1,0 +1,304 @@
+---
+title: "MGBC_SuppFig3"
+author: "Benjamin Beresford-Jones"
+date: "30/05/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Required datasets:
+- functional_group.summary.tsv
+- annotation_efficiency.tsv
+
+## load libraries
+```{r}
+library(magrittr)
+library(ggplot2)
+library(ggpubr)
+library(grid)
+library(gridExtra)
+library(VennDiagram)
+```
+
+## set defaults
+```{r}
+INDIR="SuppFig3_data/" # unzip
+# OUTDIR="CHANGEME" # change to save figures to specified directory
+
+bS_cn <- c("Sample", "Species", "Reads_assigned", "Read_frac")
+tax_cn <- c("Domain", "Phylum", "Class", "Order", "Family", "Genus", "Species")
+
+f1_cn <- c("MGBC_id", "Orig_name", "Study", "Completeness", "Contamination", "Size", "N_contigs", "N50", "MCL", "QS", "CMseq", "Qual_level", "Lowest_tax_gtdb", "Lowest_tax_rank", "GTDB_taxonomy")
+
+col_HUMAN <- "#0073C2FF"
+col_MOUSE <- "#FFC800"
+```
+
+## build colour palettes
+```{r}
+phycol=c("#377eb8","#8CB302","#008C74","#d95f02","#FF974F","#FFED6F","#FDCDAC","#ffd92f","#e22426","#B3B3B3","#FBB4AE","#984ea3","#35478C","#7FC97F","#FF73C5","#BF5693")
+phylabs=c("Actinobacteriota","Bacteroidota","Campylobacterota","Cyanobacteria","Deferribacterota","Desulfobacterota","Elusimicrobiota","Firmicutes","Firmicutes_A","Firmicutes_B","Firmicutes_C","Proteobacteria","Spirochaetota","Thermotogota","Verrucomicrobiota","Verrucomicrobiota_A")
+names(phycol) <- phylabs
+```
+
+# Load datasets
+
+```{r}
+# functional overlap
+func_df <- read.delim(file = paste0(INDIR, "functional_group.summary.tsv"), header = F, 
+                      col.names = c("Database", "ALL", "HUMAN", "MOUSE", "Annotation"))
+
+# annotation efficiency
+anno_eff <- read.delim(file = paste0(INDIR, "annotation_efficiency.tsv"), header = F, 
+                       col.names = c("Annotation_tool", "Genome", "Species", "Rank", "Taxonomy", "Host", "Feature_type", "Count"))
+
+```
+
+
+
+# Supplementary Figure 3a
+
+```{r}
+# taxonomy Venn:
+# Enter mouse data
+Mouse_species_KNOWN <- 257
+Mouse_species_UNKNOWN <- 837 
+
+# Enter hhuman data
+Human_species_KNOWN <- 2256
+Human_species_UNKNOWN <- 750
+
+Total_KNOWN <- Mouse_species_KNOWN + Human_species_KNOWN
+Total_UNKNOWN <- Mouse_species_UNKNOWN + Human_species_UNKNOWN
+
+Total_mouse <- Mouse_species_UNKNOWN + Mouse_species_KNOWN
+Total_human <- Human_species_UNKNOWN + Human_species_KNOWN
+
+Shared_KNOWN <- 96
+Shared_UNKNOWN <- 7
+Total_shared <- Shared_UNKNOWN + Shared_KNOWN
+```
+
+```{r}
+grid.newpage()
+draw.pairwise.venn(area1 = Total_human, area2 = Total_mouse, cross.area = Total_shared, category = c("Human", "Mouse"), lty = rep("blank", 
+    2), fill = c(col_HUMAN, col_MOUSE), alpha = rep(0.5, 2), cat.pos = c(0, 
+    0), cat.dist = rep(0.025, 2))
+```
+
+```{#r}
+# save files
+pdf(paste0(OUTDIR, "MGBC_fig3b_taxonomy_Venn.pdf"), height = 4, width = 6)
+grid.newpage()
+draw.pairwise.venn(area1 = Total_human, area2 = Total_mouse, cross.area = Total_shared, category = c("Human", "Mouse"), lty = rep("blank", 
+    2), fill = c(col_HUMAN, col_MOUSE), alpha = rep(0.5, 2), cat.pos = c(0, 
+    0), cat.dist = rep(0.025, 2))
+dev.off()
+```
+
+```{r}
+Total_species <- Total_human + Total_mouse - Total_shared
+print("The percentage of species that are shared between the microbiota of humans and mice:")
+Total_shared/Total_species*100
+```
+
+
+# Supplementary Figure 3b
+
+## load data
+```{r}
+for (i in c(1:nrow(func_df))) {
+  tmp <- func_df[i,]
+  SHARED=tmp$HUMAN+tmp$MOUSE-tmp$ALL
+  
+  S_FRAC=round(SHARED/tmp$ALL*100, digits=2)
+  
+  print(paste(tmp$Annotation, tmp$Database, ":", S_FRAC, "%" ))
+}
+```
+
+
+
+### Functional Venn - IPS families (IPR)
+```{r}
+tmp <- func_df[func_df$Database == "InterPro_family_ipr",]
+SHARED <- tmp$HUMAN + tmp$MOUSE - tmp$ALL
+
+SHARED/(tmp$HUMAN+tmp$MOUSE-SHARED)*100 # 80.3%
+
+grid.newpage()
+draw.pairwise.venn(area1 = tmp$HUMAN, area2 = tmp$MOUSE, cross.area = SHARED, category = c("Human", "Mouse"), lty = rep("blank", 2), 
+    fill = c(col_HUMAN, col_MOUSE) , alpha = rep(0.5, 2), cat.pos = c(0, 0), cat.dist = rep(0.025, 2))
+```
+
+```{#r}
+# save files
+pdf(paste0(OUTDIR, "ipr_Venn.pdf"), height = 4, width = 6)
+grid.newpage()
+draw.pairwise.venn(area1 = tmp$HUMAN, area2 = tmp$MOUSE, cross.area = SHARED, category = c("Human", "Mouse"), lty = rep("blank", 2), 
+    fill = c(col_HUMAN, col_MOUSE) , alpha = rep(0.5, 2), cat.pos = c(0, 0), cat.dist = rep(0.025, 2))
+dev.off()
+```
+
+
+### Functional Venn - EGGNOG
+```{r}
+tmp <- func_df[func_df$Database == "KEGG" & func_df$Annotation == "eggNOG",]
+SHARED <- tmp$HUMAN + tmp$MOUSE - tmp$ALL
+
+SHARED/(tmp$HUMAN+tmp$MOUSE-SHARED)*100 # 84.5%
+
+grid.newpage()
+draw.pairwise.venn(area1 = tmp$HUMAN, area2 = tmp$MOUSE, cross.area = SHARED, category = c("Human", "Mouse"), lty = rep("blank", 2), 
+    fill = c(col_HUMAN, col_MOUSE) , alpha = rep(0.5, 2), cat.pos = c(0, 0), cat.dist = rep(0.025, 2))
+```
+
+
+```{#r}
+# save files
+pdf(paste0(OUTDIR, "eggNOG_Venn.pdf"), height = 4, width = 6)
+grid.newpage()
+draw.pairwise.venn(area1 = tmp$HUMAN, area2 = tmp$MOUSE, cross.area = SHARED, category = c("Human", "Mouse"), lty = rep("blank", 2), 
+    fill = c(col_HUMAN, col_MOUSE) , alpha = rep(0.5, 2), cat.pos = c(0, 0), cat.dist = rep(0.025, 2))
+dev.off()
+```
+
+
+# Supplementary Figure 3c
+
+```{r}
+ogc <- anno_eff[anno_eff$Feature_type == "ORIG_GENE_COUNT" & anno_eff$Annotation_tool == "EGGNOG",]
+
+anno_eff <- lapply(split(anno_eff, anno_eff$Genome), function(x) {
+  ALL <- x$Count[x$Feature_type == "ORIG_GENE_COUNT"][1]
+  tmp_df <- x[x$Feature_type != "ORIG_GENE_COUNT",]
+  tmp_df$Eff_frac <- tmp_df$Count / ALL * 100
+  tmp_df
+}) %>% do.call("rbind", .)
+
+tax_split <- strsplit(anno_eff$Taxonomy, split = ";.__")
+anno_eff$Phylum <- lapply(tax_split, function(x){x[2]}) %>% unlist
+anno_eff$Class <- lapply(tax_split, function(x){x[3]}) %>% unlist
+```
+
+### IPR
+```{r}
+ipr_all_eff <- anno_eff[anno_eff$Annotation_tool == "IPS" & anno_eff$Feature_type == "TOTAL_IPS_COUNT",] # all types of IPR
+ipr_fam_eff <- anno_eff[anno_eff$Annotation_tool == "IPS" & anno_eff$Feature_type == "FAMILY_IPS_COUNT",] # only IPR Protein Families
+
+summary(ipr_all_eff$Eff_frac)
+summary(ipr_fam_eff$Eff_frac)
+```
+
+
+```{r}
+TOI <- ipr_fam_eff$Phylum[ipr_fam_eff$Host == "HUMAN"][which(ipr_fam_eff$Phylum[ipr_fam_eff$Host == "HUMAN"] %in% 
+                                            ipr_fam_eff$Phylum[ipr_fam_eff$Host == "MOUSE"])] %>% unique
+ipr <- ipr_fam_eff[which(ipr_fam_eff$Phylum %in% TOI),]
+```
+
+
+```{r}
+ipr_order <- lapply(split(ipr, f=ipr$Phylum), function(x){median(x$Eff_frac)}) %>% unlist %>% sort(decreasing = FALSE) %>% names
+
+p <- ggboxplot(data = ipr, x = "Phylum", y = "Eff_frac", 
+               fill = "Phylum", palette = phycol, 
+               order = ipr_order, 
+               xlab = FALSE, outlier.size = 0.1
+               ) +
+  theme(panel.grid.major.y = element_line(colour = "lightgrey")) +
+  theme(panel.grid.minor.y = element_line())
+
+
+ggpar(p, rotate = FALSE, ylab = "% IPR assigned genes", x.text.angle = 30, legend = "none")
+```
+
+```{#r}
+# save files
+pdf(paste0(OUTDIR, "ipr_efficiency_phylum_HvM.pdf"), height = 3.27, width = 8)
+ggpar(p, rotate = FALSE, ylab = "% IPR assigned genes", x.text.angle = 30, legend = "none")
+dev.off()
+```
+
+
+```{#r}
+## Not included in the paper
+ipr$Host[ipr$Host == "HUMAN"] <- "Human"
+ipr$Host[ipr$Host == "MOUSE"] <- "Mouse"
+
+p <- ggviolin(data = ipr, x = "Host", y = "Eff_frac", 
+              xlab = FALSE, ylab = "% IPR assigned genes",
+              color = "Host", fill = "Host", alpha = 0.3,
+              palette = c("Human"=col_HUMAN, "Mouse"=col_MOUSE)) +
+  stat_compare_means(comparisons = list(c("Human", "Mouse")), label = "p.signif", label.y = 80, tip.length = 0) +
+  theme(legend.position = "none")
+p + geom_boxplot(aes(fill = Host),colour = "black", 
+                 outlier.shape = NA)
+```
+
+
+### KEGG Orthology groups
+```{r}
+enog_ko <- anno_eff[anno_eff$Annotation_tool == "EGGNOG" & anno_eff$Feature_type == "KEGG",] # KO groups
+
+summary(enog_ko$Eff_frac)
+```
+
+```{r}
+TOI <- enog_ko$Phylum[enog_ko$Host == "HUMAN"][which(enog_ko$Phylum[enog_ko$Host == "HUMAN"] %in% 
+                                            enog_ko$Phylum[enog_ko$Host == "MOUSE"])] %>% unique
+ipr <- enog_ko[which(enog_ko$Phylum %in% TOI),]
+```
+
+```{r}
+ipr_order <- lapply(split(ipr, f=ipr$Phylum), function(x){median(x$Eff_frac)}) %>% unlist %>% sort(decreasing = FALSE) %>% names
+
+p <- ggboxplot(data = ipr, x = "Phylum", y = "Eff_frac", 
+               fill = "Phylum", palette = phycol, 
+               order = ipr_order, 
+               xlab = FALSE, outlier.size = 0.1
+               ) +
+  theme(panel.grid.major.y = element_line(colour = "lightgrey")) +
+  theme(panel.grid.minor.y = element_line())
+
+
+ggpar(p, rotate = FALSE, ylab = "% KO assigned genes", x.text.angle = 30, legend = "none")
+```
+
+```{#r}
+# save files
+pdf(paste0(OUTDIR, "ko_efficiency_phylum_HvM.pdf"), height = 3.27, width = 8)
+ggpar(p, rotate = FALSE, ylab = "% KO assigned genes", x.text.angle = 30, legend = "none")
+dev.off()
+```
+
+
+# Supplementary Figure 3d
+
+```{r}
+
+ipr$Host[ipr$Host == "HUMAN"] <- "Human"
+ipr$Host[ipr$Host == "MOUSE"] <- "Mouse"
+
+p <- ggviolin(data = ipr, x = "Host", y = "Eff_frac", 
+              xlab = FALSE, ylab = "% KO assigned genes",
+              color = "Host", fill = "Host", alpha = 0.3,
+              palette = c("Human"=col_HUMAN, "Mouse"=col_MOUSE)) +
+  stat_compare_means(comparisons = list(c("Human", "Mouse")), label = "p.signif", label.y = 92, tip.length = 0
+                     ) +
+  theme(legend.position = "none")
+p + geom_boxplot(aes(fill = Host),colour = "black", 
+                 outlier.shape = NA)
+```
+
+```{#r}
+# save files
+pdf(paste0(OUTDIR, "ko_efficiency_host_HvM.pdf"), height = 4, width = 3)
+p + geom_boxplot(aes(fill = Host),colour = "black", 
+                 outlier.shape = NA)
+
+dev.off()
+```
