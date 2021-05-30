@@ -1,7 +1,7 @@
 The Mouse Gastrointestinal Bacterial Catalogue (MGBC)
 ============================================
 
-Welcome to the MGBC repository! Here you will find the pipelines, scripts and data files required to establish the average mouse microbiome at the species-level and further compare the microbiotas of humans and mice. 
+Welcome to the MGBC repository! Here you will find the pipelines, scripts and data files for analysing mouse gut microbiome samples at buildling the MGBC genome catalogue.
 
 
 This work is currently under review for publication :microscope:.
