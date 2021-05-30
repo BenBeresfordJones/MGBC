@@ -136,8 +136,8 @@ __Notes:__
   * Contamination ≤5%
   * Genome size ≤8Mb
   * Number of contigs ≤500
-  * N50 ≥10000
-  * Mean contig length ≥5000
+  * N50 ≥10,000
+  * Mean contig length ≥5,000
 - Genome ids that pass QC can be found `<-o>/CheckM/Validated_genomes.txt`
 
 
@@ -166,7 +166,7 @@ This pipeline was coded for running within LSF cluster environments.
 
 __Usage:__
 ```
-mmseqs_wf_bsub.sh -i <INFILE> -s <OUTDIR> -t <THREADS> -T <TMPDIR> -FENH -m 120 
+mmseqs_wf_bsub.sh -i <INFILE> -s <OUTDIR> -t <THREADS> -T <TMPDIR> -FENH -m <MEMORY> 
 ``` 
 Arguments:  
 `-i` path to input file (concatenated protein sequences e.g. .faa to be clustered) [REQUIRED]  
@@ -183,8 +183,8 @@ Arguments:
 
 __Notes:__
 - will skip building MMseqs database if one already exist in `<TMPDIR>`
-- the `2-build-protein-catalogues/` directory need to be part of your `$PATH` system variable to access `linclust.sh`
-- output files are found written to `<-o>/CLUS_X/`, where _X_ represents the chosen sequence identity threshold(s)
+- the `2-build-protein-catalogues/` directory needs to be part of your `$PATH` system variable to access `linclust.sh`
+- output files are written to `<-o>/CLUS_X/`, where _X_ represents the chosen sequence identity threshold(s)
   * `mmseqs_cluster_rep.fa`: fasta file containing sequence representatives
   * `mmseqs_cluster.tsv`: cluster membership file
 
