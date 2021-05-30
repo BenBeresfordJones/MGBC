@@ -236,11 +236,9 @@ Action:
 
 __Notes:__
 - need to update the paths to the required data:
-  * [protein cluster databases](https://doi.org/10.5281/zenodo.4300919)
+  * see links to the protein cluster files above
       * path to directory containing CLUS_X directories
   * taxonomy files (requires the output from `get_lowest_taxonomy_v1.0.R`)
-      * `data/mouse-18075.tsv`
-      * `data/human-100456.tsv`
 
 
 #### `get.unknown_species_pangenome_v2.sh`
@@ -277,15 +275,10 @@ Action:
 
 __Notes:__
 - need to update the paths to the required data:
-  * [protein cluster databases](https://doi.org/10.5281/zenodo.4300919)
-      * path to directory containing CLUS_X directories  
+  * see links above for access to the protein cluster catalogues
   * taxonomy files (requires the output from `get_lowest_taxonomy_v1.0.R`)
-      * `data/mouse-18075.tsv`
-      * `data/human-100456.tsv`
   * 95% ANI output files for mouse
-      * `data/drep_950_index-ALL.csv`
   * human genome-genome rep index
-      * `data/human_rep_members.tsv`
 
 
 #### `analyse.species-pangenome_v3.sh`
@@ -311,9 +304,7 @@ Arguments:
 __Notes:__
 - need to update the paths to the required data:
   * taxonomy files (requires the output from `get_lowest_taxonomy_v1.0.R`)
-      * `data/mouse-18075.tsv`
-      * `data/human-100456.tsv`
-  * [MMGC/UHGP MMseqs 90% cluster membership file](https://doi.org/10.5281/zenodo.4300919)  
+  * [MGBC-UHGG combined catalogue - 90% sequence identity clusters (mgbc-uhgg_clus90.tar.gz)](https://zenodo.org/record/4840586/files/mgbc-uhgg_clus90.tar.gz?download=1)
       * `CLUS_90/mmseqs_cluster.tsv`
   * UHGP 100% cluster membership file.
       * `get_cluster_membership.out.tsv`
@@ -389,7 +380,3 @@ compare.HM_eggnog-out.sh <OUTDIR> <PATH_TO_HUMAN_PANGENOME_DIR> <PATH_TO_MOUSE_P
 ```
 blast-out_v4.sh -i <GENE_FAA> -s <SEQ_IDENT> -o <OUTDIR>
 ``` 
-
-## Thank you for reading!
-
-Any comments, questions or queries, or even if you just want to say hello, feel free to get in touch via email!
