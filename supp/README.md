@@ -4,7 +4,7 @@ The Supplementary Data Tables are available from the main manuscript.
 		
 ### Summary:		
 
-| Tab name	| Contents	| Description/Notes |
+| Tab name	| Contents	|
 | --------- | --------- | ----------------- | 
 | Supplementary Table 1	| Data for the 276 genomes of the Mouse Culture Collection isolates.	| 
 | Supplementary Table 2	| Metadata for the 2,446 mouse gut shotgun metagenomes used for abundance and prevalence analyses in this study.	| 
