@@ -320,7 +320,7 @@ Arguments:
 `-i`      Path to IPS output file from `get.pangenome_MGBC1094.sh` i.e. `ips_out.gff`  
 `-a`      Path to original fasta file used for IPS i.e. `$OUTDIR/Cluster_"<-l>"/extracted_seqs.faa`   
 `-o`      Directory to write to [REQUIRED]  
-`-g`      Path to genome ids file.  
+`-g`      Path to genome ids file  
 `-H`      Host organism: either HUMAN or MOUSE  
 
 
