@@ -21,9 +21,11 @@ __Genomes:__
     * Genome metadata: [MGBC_md_26640.tar.gz](https://zenodo.org/record/4840600/files/MGBC_md_26640.tar.gz?download=1)
     * Genome protein coding sequences (CDS): [MGBC-faa_26640.tar.gz](https://zenodo.org/record/4840600/files/MGBC-faa_26640.tar.gz?download=1)
     * This is the final genome set following dereplication that is used for the study's analyses. 
-* [35,925 high-quality genomes (MGBC-hq_35925.tar.gz)](https://zenodo.org/record/4837230/files/MGBC-hq_35925.tar.gz?download=1)
-    * Genome metadata: [MGBC_md_65097.tar.gz](https://zenodo.org/record/4837230/files/MGBC_md_65097.tar.gz?download=1)
-    * These are all the high quality genomes from the study, prior to dereplication. 
+* Full genome collection:
+   * [35,925 high-quality genomes (MGBC-hq_35925.tar.gz)](https://zenodo.org/record/4837230/files/MGBC-hq_35925.tar.gz?download=1)
+   * [29,129 medium-plus quality genomes (MGBC-mq_29129.tar.gz)](https://zenodo.org/record/4876551/files/MGBC-mq_29129.tar.gz?download=1)
+   * Genome metadata: [MGBC_md_65097.tar.gz](https://zenodo.org/record/4837230/files/MGBC_md_65097.tar.gz?download=1)
+   * This is the complete collection of genomes generated/curated for this study.
 
 __Protein catalogues:__
 * [MGBC-UHGG combined catalogue - 100% sequence identity clusters (mgbc-uhgg_clus100.tar.gz)](https://zenodo.org/record/4840586/files/mgbc-uhgg_clus100.tar.gz?download=1)
