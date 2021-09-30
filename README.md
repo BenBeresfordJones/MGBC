@@ -20,12 +20,19 @@ __Genomes:__
 * [26,640 high-quality, non-redundant genomes (MGBC-hqnr_26640.tar.gz)](https://zenodo.org/record/4840600/files/MGBC-hqnr_26640.tar.gz?download=1)
     * Genome metadata: [MGBC_md_26640.tar.gz](https://zenodo.org/record/4840600/files/MGBC_md_26640.tar.gz?download=1)
     * Genome protein coding sequences (CDS): [MGBC-faa_26640.tar.gz](https://zenodo.org/record/4840600/files/MGBC-faa_26640.tar.gz?download=1)
-    * This is the final genome set following dereplication that is used for the study's analyses. 
+    * Genome annotations (GenBank flat file format)
+      * Part 1 (MGBC000001-MGBC129999): [MGBC-gbk_26640-d1.tar.gz](https://zenodo.org/record/5534741/files/MGBC-gbk_26640-d1.tar.gz?download=1)
+      * Part 2 (MGBC130000-MGBC167528): [MGBC-gbk_26640-d2.tar.gz](https://zenodo.org/record/5532847/files/MGBC-gbk_26640-d2.tar.gz?download=1)
+    * This is the final genome set following dereplication that is used for the study's analyses.
 * Full genome collection:
    * [35,925 high-quality genomes (MGBC-hq_35925.tar.gz)](https://zenodo.org/record/4837230/files/MGBC-hq_35925.tar.gz?download=1)
    * [29,129 medium-plus quality genomes (MGBC-mq_29129.tar.gz)](https://zenodo.org/record/4876551/files/MGBC-mq_29129.tar.gz?download=1)
    * Genome metadata: [MGBC_md_65097.tar.gz](https://zenodo.org/record/4837230/files/MGBC_md_65097.tar.gz?download=1)
    * This is the complete collection of genomes generated/curated for this study.
+* Mouse Culture Collection:
+   * Genome assemblies for the 276 sequenced isolates (post-qc) are available from BioProject [PRJEB45232](https://www.ncbi.nlm.nih.gov/bioproject/PRJEB45232)
+   * Genome annotations (GenBank flat file format): [MCC-gbk_276.tar.gz](https://zenodo.org/record/5534741/files/MCC-gbk_276.tar.gz?download=1)
+   * Deposition of cultured isolates from the paper to DSMZ is on-going, and accessions of available isolates are being actively updated on this GitHub.
 
 __Protein catalogues:__
 * [MGBC-UHGG combined catalogue - 100% sequence identity clusters (mgbc-uhgg_clus100.tar.gz)](https://zenodo.org/record/4840586/files/mgbc-uhgg_clus100.tar.gz?download=1)
