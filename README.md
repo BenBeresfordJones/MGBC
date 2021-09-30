@@ -36,22 +36,22 @@ __Genomes:__
    * Deposition of cultured isolates from the paper to DSMZ is on-going, and accessions of available isolates are being actively updated on this GitHub.
 
 __Protein catalogues:__
-* [MGBC-UHGG combined catalogue - 100% sequence identity clusters (mgbc-uhgg_clus100.tar.gz)](https://zenodo.org/record/4840586/files/mgbc-uhgg_clus100.tar.gz?download=1)
-* [MGBC-UHGG combined catalogue - 90% sequence identity clusters (mgbc-uhgg_clus90.tar.gz)](https://zenodo.org/record/4840586/files/mgbc-uhgg_clus90.tar.gz?download=1)
-* [MGBC-UHGG combined catalogue - 80% sequence identity clusters (mgbc-uhgg_clus80.tar.gz)](https://zenodo.org/record/4840586/files/mgbc-uhgg_clus80.tar.gz?download=1)
-* [MGBC-UHGG combined catalogue - 50% sequence identity clusters (mgbc-uhgg_clus50.tar.gz)](https://zenodo.org/record/4840586/files/mgbc-uhgg_clus50.tar.gz?download=1)
-* [MGBC protein catalogue - 100% sequence identity clusters (mgbc_hq-mq_clus100.tar.gz)](https://zenodo.org/record/4840586/files/mgbc_hq-mq_clus100.tar.gz?download=1)
+* MGBC-UHGG combined catalogue - 100% sequence identity clusters: [mgbc-uhgg_clus100.tar.gz](https://zenodo.org/record/4840586/files/mgbc-uhgg_clus100.tar.gz?download=1)
+* MGBC-UHGG combined catalogue - 90% sequence identity clusters: [mgbc-uhgg_clus90.tar.gz](https://zenodo.org/record/4840586/files/mgbc-uhgg_clus90.tar.gz?download=1)
+* MGBC-UHGG combined catalogue - 80% sequence identity clusters: [mgbc-uhgg_clus80.tar.gz](https://zenodo.org/record/4840586/files/mgbc-uhgg_clus80.tar.gz?download=1)
+* MGBC-UHGG combined catalogue - 50% sequence identity clusters: [mgbc-uhgg_clus50.tar.gz](https://zenodo.org/record/4840586/files/mgbc-uhgg_clus50.tar.gz?download=1)
+* MGBC protein catalogue - 100% sequence identity clusters: [mgbc_hq-mq_clus100.tar.gz](https://zenodo.org/record/4840586/files/mgbc_hq-mq_clus100.tar.gz?download=1)
     * This catalogue contains the gene clusters from all non-redundant high and medium plus quality genomes of the MGBC.
 
 
 __Kraken2/Bracken database:__
-* [MGBC Kraken2/Bracken database (MGBC-26640_KrakenBracken.tar.gz)](https://zenodo.org/record/4836362/files/MGBC-26640_KrakenBracken.tar.gz?download=1)
+* MGBC Kraken2/Bracken database: [MGBC-26640_KrakenBracken.tar.gz](https://zenodo.org/record/4836362/files/MGBC-26640_KrakenBracken.tar.gz?download=1)
     * This custom database leverages the 26,640 high quality genomes of the MGBC to achieve ~90% average read classification for mouse gut metagenome samples.
 
 __The global mouse metagenome compilation:__
-* [Bracken output for 2,446 mouse gut metagenomes (bracken-out_2664.tar.gz)](https://zenodo.org/record/4836362/files/bracken-out_2664.tar.gz?download=1)
+* Bracken output for 2,446 mouse gut metagenomes: [bracken-out_2664.tar.gz](https://zenodo.org/record/4836362/files/bracken-out_2664.tar.gz?download=1)
     * Species-level data on the microbiome composition for 2,446 mouse gut metagenome samples.
-* [Sample metadata for these mouse gut metagenomes (sample-metadata_2446.tar.gz)](https://zenodo.org/record/4836362/files/sample-metadata_2446.tar.gz?download=1)
+* Sample metadata for these mouse gut metagenomes: [sample-metadata_2446.tar.gz](https://zenodo.org/record/4836362/files/sample-metadata_2446.tar.gz?download=1)
 
 
 ## Data and code used in this project
