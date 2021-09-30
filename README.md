@@ -14,19 +14,20 @@ This work is currently under review for publication :microscope:.
 The [MGBC-Toolkit](https://github.com/BenBeresfordJones/MGBC-Toolkit) is a new tool for identifying the closest taxonomically and functionally related species between the human and mouse gut microbiotas, as well as the taxonomic locations of functions of interest between hosts.
 
 
-## Dataset download links for use by reviewers
+## Summary and availability of datasets
 
 __Genomes:__
-* [26,640 high-quality, non-redundant genomes (MGBC-hqnr_26640.tar.gz)](https://zenodo.org/record/4840600/files/MGBC-hqnr_26640.tar.gz?download=1)
-    * Genome metadata: [MGBC_md_26640.tar.gz](https://zenodo.org/record/4840600/files/MGBC_md_26640.tar.gz?download=1)
-    * Genome protein coding sequences (CDS): [MGBC-faa_26640.tar.gz](https://zenodo.org/record/4840600/files/MGBC-faa_26640.tar.gz?download=1)
-    * Genome annotations (GenBank flat file format)
+* MGBC collection:
+   * 26,640 high-quality, non-redundant genomes: [MGBC-hqnr_26640.tar.gz](https://zenodo.org/record/4840600/files/MGBC-hqnr_26640.tar.gz?download=1)
+   * Genome metadata: [MGBC_md_26640.tar.gz](https://zenodo.org/record/4840600/files/MGBC_md_26640.tar.gz?download=1)
+   * Genome protein coding sequences (.faa): [MGBC-faa_26640.tar.gz](https://zenodo.org/record/4840600/files/MGBC-faa_26640.tar.gz?download=1)
+   * Genome annotations (GenBank flat file format)
       * Part 1 (MGBC000001-MGBC129999): [MGBC-gbk_26640-d1.tar.gz](https://zenodo.org/record/5534741/files/MGBC-gbk_26640-d1.tar.gz?download=1)
       * Part 2 (MGBC130000-MGBC167528): [MGBC-gbk_26640-d2.tar.gz](https://zenodo.org/record/5532847/files/MGBC-gbk_26640-d2.tar.gz?download=1)
-    * This is the final genome set following dereplication that is used for the study's analyses.
+   * This is the final genome set following dereplication that is used for the study's analyses.
 * Full genome collection:
-   * [35,925 high-quality genomes (MGBC-hq_35925.tar.gz)](https://zenodo.org/record/4837230/files/MGBC-hq_35925.tar.gz?download=1)
-   * [29,129 medium-plus quality genomes (MGBC-mq_29129.tar.gz)](https://zenodo.org/record/4876551/files/MGBC-mq_29129.tar.gz?download=1)
+   * 35,925 high-quality genomes: [MGBC-hq_35925.tar.gz](https://zenodo.org/record/4837230/files/MGBC-hq_35925.tar.gz?download=1)
+   * 29,129 medium-plus quality genomes: [MGBC-mq_29129.tar.gz](https://zenodo.org/record/4876551/files/MGBC-mq_29129.tar.gz?download=1)
    * Genome metadata: [MGBC_md_65097.tar.gz](https://zenodo.org/record/4837230/files/MGBC_md_65097.tar.gz?download=1)
    * This is the complete collection of genomes generated/curated for this study.
 * Mouse Culture Collection:
