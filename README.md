@@ -33,7 +33,7 @@ __Genomes:__
 * Mouse Culture Collection:
    * Genome assemblies for the 276 sequenced isolates (post-qc) are available from BioProject [PRJEB45232](https://www.ncbi.nlm.nih.gov/bioproject/PRJEB45232)
    * Genome annotations (GenBank flat file format): [MCC-gbk_276.tar.gz](https://zenodo.org/record/5534741/files/MCC-gbk_276.tar.gz?download=1)
-   * Deposition of cultured isolates from the paper to DSMZ is on-going, and accessions of available isolates are being actively updated on this GitHub.
+   * Deposition of cultured isolates from the paper to DSMZ is on-going, and accessions of available isolates are being [actively updated on this GitHub](https://github.com/BenBeresfordJones/MGBC/blob/main/MCC_deposition_accessions.xlsx).
 
 __Protein catalogues:__
 * MGBC-UHGG combined catalogue - 100% sequence identity clusters: [mgbc-uhgg_clus100.tar.gz](https://zenodo.org/record/4840586/files/mgbc-uhgg_clus100.tar.gz?download=1)
