@@ -420,12 +420,11 @@ pheatmap(mat=as.matrix(abun_10), show_rownames = TRUE, show_colnames = TRUE, na_
 dev.off()
 ```
 
-
 # Supplementary Figure 2d
 
 ```{r}
 wild_samples <- md$Sample[md$Lab_v_Wild == "Wild"]
-lab_samples <- md$Sample[which(md$Lab_v_Wild == "Laboratory")]
+lab_samples <- md$Sample[which(md$Lab_v_Wild == "Laboratory" & md$Treatment == "Control")]
 
 df_wild <- bS[bS$Sample %in% wild_samples,]
 df_lab <- bS[bS$Sample %in% lab_samples,]
@@ -472,6 +471,9 @@ data_summary_lab[is.na(data_summary_lab)] <- 0
 ```
 
 ```{r}
+length(wild_samples)
+length(lab_samples)
+
 # merge wild lab and lab mouse 
 df_wl <- merge(data_summary_wild, data_summary_lab, by = "Species", suffixes = c(".W", ".L"))
 df_wl <- merge(x = df_wl, y = ntax, all = TRUE, by = "Species")
@@ -495,8 +497,8 @@ ggpar(p, xlab = "Prevalence in wild mice (%)", ylab = "Prevalence in laboratory 
 
 ```{#r}
 # save file
-pdf(paste0(OUTDIR, "MGBC_suppfig2d_lab_v_wild_prev_scatter_COMB.pdf"), height = 5, width = 7)
-ggpar(p, xlab = "Prevalence in wild mice (%)", ylab = "Prevalence in laboratory mice (%)", legend = "right")
+pdf(paste0(OUTDIR, "MGBC_suppfig2d_lab_v_wild_prev_scatter_COMB.pdf"), height = 5, width = 5)
+ggpar(p, xlab = "Prevalence in wild mice (%)", ylab = "Prevalence in laboratory mice (%)", legend = "none")
 dev.off()
 ```
 
@@ -507,7 +509,7 @@ dev.off()
 length(df_wl$Species[df_wl$Prevalence_frac.L > 0 & df_wl$Prevalence_frac.W > 0])
 # wild only = 2
 length(df_wl$Species[df_wl$Prevalence_frac.L == 0 & df_wl$Prevalence_frac.W > 0])
-# lab only = 240
+# lab only = 238
 length(df_wl$Species[df_wl$Prevalence_frac.L > 0 & df_wl$Prevalence_frac.W == 0])
 # 1084 total
 ```
@@ -516,7 +518,8 @@ length(df_wl$Species[df_wl$Prevalence_frac.L > 0 & df_wl$Prevalence_frac.W == 0]
 # Supplementary Figure 2e
 
 ```{r}
-data <- bS[,c(1,2,4)]
+data <- rbind(df_wild, df_lab)
+data <- data[,c(1,2,4)]
 otu <- dcast(data, Species ~ Sample)
 otu[is.na(otu)] <- 0
 rownames(otu) <- otu$Species
@@ -530,7 +533,7 @@ d.clr <- t(apply(d.czm, 1, function(x){log(x) - mean(log(x))})) # geometric mean
 
 rownames(md) <- md$Sample
 lab_wild <- Maaslin2(input_data = d.clr, input_metadata = md, 
-         output = paste0(OUTDIR, "LW_Maaslin2/"), 
+         output = paste0(OUTDIR, "LW_Maaslin2_qc/"), 
          min_abundance = 0.01,
          normalization = "NONE",
          transform = "NONE",
@@ -569,18 +572,21 @@ top_n=25
 lw_abun <- rbind(w_maas_tmp[order(abs(w_maas_tmp$coef), decreasing = TRUE),] %>% head(n=top_n),
                  l_maas_tmp[order(abs(l_maas_tmp$coef), decreasing = TRUE),] %>% head(n=top_n))
 
+lw_abun$Phylum <- factor(lw_abun$Phylum, levels = unique(lw_abun$Phylum))
+
 p <- ggbarplot(lw_abun, x = "Species", y = "coef", 
                sort.val = "asc",sort.by.groups = FALSE,
                color = "Phylum", fill = "Phylum",
                palette = phycol,
-               ylab = FALSE) 
-ggpar(p, rotate = FALSE, legend = "right", ylab = "Fold-change in abundance")
+               ylab = "Abundance (fold-change)",
+               xlab = FALSE) +
+  scale_y_continuous(breaks = c(-2,0,2,4))
+ggpar(p, rotate = FALSE, legend = "right", x.text.angle = 45)
 ```
 
 ```{#r}
 # save file
-pdf(paste(OUTDIR, "MGBC_fig_lab_wild_top25_abundance.pdf"), height = 10, width = 8)
-ggpar(p, rotate = TRUE, legend = "right", ylab = "Fold-change in abundance")
+pdf(paste(OUTDIR, "MGBC_fig_lab_wild_top25_abundance.pdf"), height = 6, width = 18)
+ggpar(p, rotate = FALSE, legend = "right", x.text.angle = 45)
 dev.off()
 ```
-
