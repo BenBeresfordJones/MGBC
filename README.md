@@ -1,4 +1,4 @@
-![alt text](https://github.com/BenBeresfordJones/MGBC/blob/main/MGBC_logo.jpg?raw=true)
+![alt text](https://github.com/BenBeresfordJones/MGBC/blob/main/MGBC_logo.png?raw=true)
 
 ![What is this](MGBC_logo.jpg)
 
