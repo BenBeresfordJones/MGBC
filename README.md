@@ -1,4 +1,4 @@
-![alt text](https://github.com/BenBeresfordJones/MGBC/blob/logo1/MGBC_logo.jpg?raw=true)
+![alt text](https://github.com/BenBeresfordJones/MGBC/blob/main/MGBC_logo.jpg?raw=true)
 
 The Mouse Gastrointestinal Bacterial Catalogue (MGBC)
 ============================================
