@@ -1,5 +1,7 @@
 ![logo](https://github.com/BenBeresfordJones/MGBC/blob/main/MGBC_logo.png?raw=true)
 
+[![DOI](https://zenodo.org/badge/317599395.svg)](https://zenodo.org/badge/latestdoi/317599395)
+
 The Mouse Gastrointestinal Bacterial Catalogue (MGBC)
 ============================================
 
