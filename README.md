@@ -5,7 +5,7 @@
 The Mouse Gastrointestinal Bacterial Catalogue (MGBC)
 ============================================
 
-Welcome to the MGBC repository! Here you will find the genomes and data files for analysing mouse gut metagenome samples as well as the pipelines and scripts used to buildl this catalogue.
+Welcome to the MGBC repository! Here you will find the genomes and data files for analysing mouse gut metagenome samples as well as the pipelines and scripts used to build this catalogue.
 
 If you use this resource or the linked [MGBC-Toolkit](https://github.com/BenBeresfordJones/MGBC-Toolkit), please cite our paper: 
 
