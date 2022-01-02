@@ -7,7 +7,8 @@ The Mouse Gastrointestinal Bacterial Catalogue (MGBC)
 
 Welcome to the MGBC repository! Here you will find the pipelines, scripts and data files for analysing mouse gut microbiome samples and buildling the MGBC genome catalogue.
 
-If you use this resource or the linked [MGBC-Toolkit](https://github.com/BenBeresfordJones/MGBC-Toolkit), please cite our paper: :microscope:
+If you use this resource or the linked [MGBC-Toolkit](https://github.com/BenBeresfordJones/MGBC-Toolkit), please cite our paper: 
+
 [The Mouse Gastrointestinal Bacteria Catalogue enables translation between the mouse and human gut microbiotas via functional mapping]{https://www.sciencedirect.com/science/article/pii/S1931312821005680}
 
 The [MGBC-Toolkit](https://github.com/BenBeresfordJones/MGBC-Toolkit) is a new tool for identifying the closest taxonomically and functionally related species between the human and mouse gut microbiotas, as well as the taxonomic locations of functions of interest between hosts.
