@@ -9,7 +9,7 @@ Welcome to the MGBC repository! Here you will find the genomes and data files fo
 
 If you use this resource or the linked [MGBC-Toolkit](https://github.com/BenBeresfordJones/MGBC-Toolkit), please cite our paper: 
 
-Beresford-Jones, B.S., Forster, S.C., Stares, M.D., Notley, G., Viciani, E., Browne, H.P., Boehmler, D.J., Soderholm, A.T., Kumar, N., Vervier, K., Cross, J.R., Almeida, A., Lawley, T.D., Pedicord, V.A., 2021. The Mouse Gastrointestinal Bacteria Catalogue enables translation between the mouse and human gut microbiotas via functional mapping. Cell Host Microbe. https://doi.org/10.1016/j.chom.2021.12.003
+* Beresford-Jones, B.S., Forster, S.C., Stares, M.D., Notley, G., Viciani, E., Browne, H.P., Boehmler, D.J., Soderholm, A.T., Kumar, N., Vervier, K., Cross, J.R., Almeida, A., Lawley, T.D., Pedicord, V.A., 2021. The Mouse Gastrointestinal Bacteria Catalogue enables translation between the mouse and human gut microbiotas via functional mapping. Cell Host Microbe. https://doi.org/10.1016/j.chom.2021.12.003
 
 
 ## Summary and availability of datasets
