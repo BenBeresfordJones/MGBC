@@ -19,7 +19,7 @@ __Genomes:__
    * 26,640 high-quality, non-redundant genomes: [MGBC-hqnr_26640.tar.gz](https://zenodo.org/record/4840600/files/MGBC-hqnr_26640.tar.gz?download=1)
    * Genome metadata: [MGBC_md_26640.tar.gz](https://zenodo.org/record/4840600/files/MGBC_md_26640.tar.gz?download=1)
    * Genome protein coding sequences (amino acid sequences; .faa): [MGBC-faa_26640.tar.gz](https://zenodo.org/record/4840600/files/MGBC-faa_26640.tar.gz?download=1)
-   * Genome protein coding sequences (nucleotide sequences; .ffn): [MGBC-ffn_26640.tar.gz](https://zenodo.org/record/6413035/files/MGBC-ffn_26640.tar.gz?download=1)
+   * Genome protein coding sequences (nucleotide sequences; .ffn): [MGBC-ffn_26640.tar.gz](https://zenodo.org/record/6418369/files/MGBC-ffn_26640.tar.gz?download=1)
    * Genome annotations (GenBank flat file format)
       * Part 1 (MGBC000001-MGBC129999): [MGBC-gbk_26640-d1.tar.gz](https://zenodo.org/record/5534741/files/MGBC-gbk_26640-d1.tar.gz?download=1)
       * Part 2 (MGBC130000-MGBC167528): [MGBC-gbk_26640-d2.tar.gz](https://zenodo.org/record/5532847/files/MGBC-gbk_26640-d2.tar.gz?download=1)
